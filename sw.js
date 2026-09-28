@@ -1,4 +1,4 @@
-const CACHE='tag-relay-test-v3-20260928a';
+const CACHE='tag-relay-test-v3-20260928b';
 const FILES=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg'];
 const LIBS=['https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
