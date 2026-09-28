@@ -1,6 +1,23 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" height="192" viewBox="0 0 192 192" width="192">
-  <rect fill="#142b25" height="192" rx="36" width="192"/>
-  <rect fill="#c8ef7b" height="148" rx="20" width="148" x="22" y="22"/>
-  <path d="M56 65h80M96 65v75" stroke="#142b25" stroke-linecap="round" stroke-width="18"/>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="720" height="720" viewBox="-90 -90 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">West Coast Airsoft Rangers app icon</title>
+  <desc id="desc">Olive-green emblem on a red and blue split background, padded for icon masking.</desc>
+  <rect x="-90" y="-90" width="360" height="720" fill="#d3262e"/>
+  <rect x="270" y="-90" width="360" height="720" fill="#2469be"/>
+  <defs>
+    <path id="emblem" d="M 115,61 C 194,-12 344,-12 425,61 C 358,106 330,164 316,226 C 385,213 443,174 481,111 C 553,191 553,346 481,427 C 440,363 382,329 315,313 C 331,380 366,438 425,481 C 343,551 195,551 115,481 C 176,438 211,380 226,313 C 159,329 100,363 61,427 C -10,346 -10,191 61,111 C 100,174 159,213 227,226 C 212,164 182,106 115,61 Z"/>
+  </defs>
+  <use xlink:href="#emblem" fill="#777a43" stroke="#171717" stroke-width="18" stroke-linejoin="round"/>
+  <use xlink:href="#emblem" fill="none" stroke="#f6f5ee" stroke-width="6" stroke-linejoin="round"/>
+  <g fill="#141510" font-family="sans-serif" text-anchor="middle" font-weight="400">
+    <text x="270" y="91" font-size="44">W</text>
+    <text x="270" y="134" font-size="43">E</text>
+    <text x="270" y="177" font-size="43">S</text>
+    <text x="270" y="219" font-size="43">T</text>
+    <text x="270" y="341" font-size="43">C</text>
+    <text x="270" y="383" font-size="43">O</text>
+    <text x="270" y="425" font-size="43">A</text>
+    <text x="270" y="467" font-size="43">S</text>
+    <text x="270" y="509" font-size="43">T</text>
+    <text x="270" y="288" font-size="46" textLength="466" lengthAdjust="spacingAndGlyphs">Airsoft Rangers</text>
+  </g>
 </svg>
