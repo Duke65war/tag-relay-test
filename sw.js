@@ -1,9 +1,7 @@
-const CACHE='mash-unit-v4-20260929a';
-const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif'];
-const LIBS=['https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'];
+const CACHE='mash-unit-v4-20260929c';
+const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif','./qrcode.min.js','./html5-qrcode.min.js'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);await cache.addAll(CORE);
- for(const url of LIBS){const response=await fetch(url,{mode:'no-cors'});if(!response.ok&&response.type!=='opaque')throw Error('QR library unavailable');await cache.put(url,response)}
  try{const logo=await fetch('./war-adventures-logo.png');if(logo.ok)await cache.put('./war-adventures-logo.png',logo)}catch(e){}
  await self.skipWaiting();
 })()));
