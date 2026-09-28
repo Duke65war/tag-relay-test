@@ -1,4 +1,4 @@
-const CACHE='mash-unit-v4-20260929f';
+const CACHE='mash-unit-v4-20260929g';
 const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif','./qrcode.min.js','./html5-qrcode.min.js'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);await cache.addAll(CORE);
