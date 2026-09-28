@@ -1,5 +1,5 @@
-const CACHE='mash-unit-v4-20260928a';
-const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg'];
+const CACHE='mash-unit-v4-20260929a';
+const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif'];
 const LIBS=['https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);await cache.addAll(CORE);
