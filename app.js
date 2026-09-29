@@ -44,14 +44,14 @@ function accept(raw){reconcile();if(!s)throw Error('Join a team first');let a=pa
   let o=offerData(a);
   if(o.team!==s.team){
     if(s.seen.includes(o.offer))throw Error('Already grabbed this offer on this phone');
-    edit(x=>{x.seen.push(o.offer);x.wins.push({...o,capturedAt:time()});x.outbound={type:'T',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:o.deadline};record(x,`Grabbed tags from ${o.name}`)});
+    edit(x=>{x.seen.push(o.offer);x.wins.push({...o,capturedAt:time()});x.outbound={type:'T',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:time()+180000};record(x,`Grabbed tags from ${o.name}`)});
     note('Show TAGS TAKEN to '+o.name+'. They scan it to confirm.');
     return;
   }
   if(s.rules.medic==='none')throw Error('No medics in this game');
   if(s.medics.some(m=>m.offer===o.offer))throw Error('You already healed this offer');
   if(s.rules.medic==='one'){
-    edit(x=>{x.medics.push({...o,completedAt:time()});x.medPending=null;x.outbound={type:'H',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:o.deadline};record(x,`Healed ${o.name}`)});
+    edit(x=>{x.medics.push({...o,completedAt:time()});x.medPending=null;x.outbound={type:'H',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:time()+180000};record(x,`Healed ${o.name}`)});
     note('Show HEALED to '+o.name+'. They scan it to confirm.');
     return;
   }
@@ -64,7 +64,7 @@ function accept(raw){reconcile();if(!s)throw Error('Join a team first');let a=pa
   if(m.owner!==o.owner||m.offer!==o.offer)throw Error('Cancel existing medic attempt first');
   if(m.challenge===o.challenge)throw Error('Need fresh rotating QR from same offer');
   if(time()-m.started<30000)throw Error(`Wait ${Math.ceil((30000-(time()-m.started))/1000)} more seconds`);
-  edit(x=>{x.medics.push({...o,completedAt:time()});x.medPending=null;x.outbound={type:'H',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:o.deadline};record(x,`Healed ${o.name}`)});
+  edit(x=>{x.medics.push({...o,completedAt:time()});x.medPending=null;x.outbound={type:'H',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:time()+180000};record(x,`Healed ${o.name}`)});
   note('Show HEALED to '+o.name+'. They scan it to confirm.');
 }
 function cancelMedic(){if(!s?.medPending)return;edit(x=>{x.medPending=null;record(x,'Medic attempt cancelled')});note('Medic attempt cleared.')}
@@ -73,7 +73,7 @@ function refreshOffer(){if(!offered())return;let slot=Math.floor(time()/8000);if
 function hostDraw(type,t,target){if(!h)return;let box=$(target);box.replaceChildren();let title=document.createElement('h2');title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) ${type==='J'?'JOIN':'BASE'}`;box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,type==='J'?joinCode(t):baseCode(t));let p=document.createElement('p');p.className='compact';p.textContent=type==='J'?'Show only to assigned players.':'Post physically at this team base; a copy can be scanned anywhere.';box.append(p)}
 function renderSetup(){$('setup').classList.toggle('hidden',!!s);$('play').classList.toggle('hidden',!s);if(s)return;let v=h&&view==='choice'?'hostPanel':view;for(let id of ['choice','hostForm','hostPanel','joinPanel','preview'])$(id).classList.toggle('hidden',id!==v);if(v==='hostPanel'&&h){$('hostInfo').textContent=`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} / BLUE ${h.rules.b}`;if(!$('hostQR').childNodes.length)hostDraw('J','A','hostQR')}if(v==='preview'&&pending){$('previewTeam').textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;$('previewRules').textContent=ruleText(pending.rules)}}
 function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';document.body.classList.toggle('returning',ret);document.body.classList.toggle('mist',dead);$('playarea').classList.toggle('teamB',s.team==='B');$('identity').textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a:'Blue '+s.rules.b} · ${s.game} · ${ruleText(s.rules)}`;let bar=$('bar');bar.replaceChildren();s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;bar.append(el)});bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));$('actions').className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');$('hit').disabled=phase!=='ACTIVE';$('scan').disabled=phase!=='ACTIVE'&&!ret;let st=$('stage');st.replaceChildren();offerSlot=-1;offerShown='';
-  if(s.outbound&&time()<s.outbound.deadline){
+  if(s.outbound){
     let head=document.createElement('h2');head.textContent=s.outbound.type==='T'?'TAGS TAKEN':'HEALED';st.append(head);
     let timer=document.createElement('p');timer.className='timer';let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);
     let box=document.createElement('div');box.className='qr offerqr';st.append(box);
