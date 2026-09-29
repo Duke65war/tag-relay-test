@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GPS Test</title>
+<style>body{font-family:sans-serif;background:#0e1c17;color:#fff;padding:20px;font-size:18px;line-height:1.6}h1{font-size:22px}button{font-size:18px;padding:14px 20px;border:0;border-radius:8px;background:#b8e96b;color:#122019;font-weight:700;margin:8px 0;width:100%}pre{background:#1b3429;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all}</style>
+</head><body>
+<h1>GPS Test</h1>
+<button id="go">Get Location</button>
+<pre id="out">Tap the button. Nothing here yet.</pre>
+<script>
+const out=document.getElementById('out');
+document.getElementById('go').onclick=()=>{
+  out.textContent='Requesting...';
+  if(!navigator.geolocation){out.textContent='No geolocation API.';return}
+  navigator.geolocation.getCurrentPosition(
+    p=>out.textContent='OK\nLat: '+p.coords.latitude+'\nLng: '+p.coords.longitude+'\nAccuracy: '+p.coords.accuracy+'m',
+    e=>out.textContent='ERROR code '+e.code+'\n'+e.message,
+    {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+  );
+};
+</script></body></html>
