@@ -1,5 +1,5 @@
-const CACHE='mash-unit-v4-20260929n';
-const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif','./qrcode.min.js','./html5-qrcode.min.js','./dogtag.svg'];
+const CACHE='mash-unit-v4-20261001a';
+const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif','./qrcode.min.js','./html5-qrcode.min.js','./dogtag.svg','./map1.jpeg'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);await cache.addAll(CORE);
  try{const logo=await fetch('./war-adventures-logo.png');if(logo.ok)await cache.put('./war-adventures-logo.png',logo)}catch(e){}
