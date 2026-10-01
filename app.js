@@ -120,9 +120,33 @@ for(let [id,type,t,target] of [['hostJA','J','A','hostQR'],['hostJB','J','B','ho
 $('selfA').onclick=()=>{try{getJoin(joinCode('A'))}catch(e){note(e.message)}};$('selfB').onclick=()=>{try{getJoin(joinCode('B'))}catch(e){note(e.message)}};
 $('eraseHost').onclick=()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone? Other phones will not be changed.')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}};
 $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopScan;$('cancelMedic').onclick=cancelMedic;$('export').onclick=()=>{if(s)download()};$('reset').onclick=()=>{if(!s||!confirm('Erase THIS phone v4 player game and personal history?'))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');view=h?'hostPanel':'choice';render();note('Player reset. Older v1/v2/v3 storage untouched.')};$('closeDialog').onclick=()=>$('dialog').close();
-$('mapButton').onclick=()=>{$('mapOverlay').classList.remove('hidden')};
-$('mapClose').onclick=()=>{$('mapOverlay').classList.add('hidden')};
-$('mapOverlay').addEventListener('dblclick',()=>{$('mapOverlay').classList.add('hidden')});
+/* --- MAP PINCH ZOOM & PAN --- */
+(function(){
+  let overlay=$('mapOverlay'),viewport=$('mapViewport'),img=$('mapImage');
+  if(!overlay||!viewport||!img)return;
+  let scale=1,tx=0,ty=0,startScale=1,startTx=0,startTy=0,startDist=0,startMidX=0,startMidY=0,startX=0,startY=0,pinching=false,panning=false,lastLift=0,wasSingle=false;
+  function apply(){img.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'}
+  function reset(){scale=1;tx=0;ty=0;apply()}
+  function dist(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)}
+  function midX(a,b){return (a.clientX+b.clientX)/2}
+  function midY(a,b){return (a.clientY+b.clientY)/2}
+  function clamp(s){return Math.max(1,Math.min(5,s))}
+  function clampPan(){const vw=viewport.clientWidth,vh=viewport.clientHeight,iw=img.clientWidth*scale,ih=img.clientHeight*scale,minTx=Math.min(0,vw-iw),minTy=Math.min(0,vh-ih);if(tx>0)tx=0;if(tx<minTx)tx=minTx;if(ty>0)ty=0;if(ty<minTy)ty=minTy}
+  viewport.addEventListener('touchstart',function(e){
+    if(e.touches.length===2){pinching=true;panning=false;wasSingle=false;startDist=dist(e.touches[0],e.touches[1]);startMidX=midX(e.touches[0],e.touches[1]);startMidY=midY(e.touches[0],e.touches[1]);startScale=scale;startTx=tx;startTy=ty}
+    else if(e.touches.length===1){const now=Date.now();if(wasSingle&&now-lastLift<300){overlay.classList.add('hidden');reset();wasSingle=false;return}wasSingle=true;panning=true;pinching=false;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}
+  },{passive:true});
+  viewport.addEventListener('touchmove',function(e){
+    if(pinching&&e.touches.length===2){e.preventDefault();const d=dist(e.touches[0],e.touches[1]),newScale=clamp(startScale*(d/startDist)),mx=midX(e.touches[0],e.touches[1]),my=midY(e.touches[0],e.touches[1]),ix=(startMidX-startTx)/startScale,iy=(startMidY-startTy)/startScale;scale=newScale;tx=mx-ix*scale;ty=my-iy*scale;clampPan();apply()}
+    else if(panning&&e.touches.length===1){e.preventDefault();tx=startTx+(e.touches[0].clientX-startX);ty=startTy+(e.touches[0].clientY-startY);clampPan();apply()}
+  },{passive:false});
+  viewport.addEventListener('touchend',function(e){
+    if(e.touches.length===0){if(wasSingle)lastLift=Date.now();pinching=false;panning=false}
+    else if(e.touches.length===1){pinching=false;panning=true;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}
+  },{passive:true});
+  $('mapButton').onclick=()=>{reset();overlay.classList.remove('hidden')};
+  $('mapClose').onclick=()=>{overlay.classList.add('hidden');reset()};
+})();
 for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;$('lives').append(x)}
 try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!ruleOK(x.rules))throw Error('host');h=x;view='hostPanel'}}catch(e){note('Saved host game unreadable. Do not clear browser storage.')}
 try{let raw=localStorage.getItem(KEY);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!idOK(x.id)||!ruleOK(x.rules)||!Array.isArray(x.tags)||x.tags.length!==(x.rules.lives==='U'?1:Number(x.rules.lives))||!['ACTIVE','OFFERED','RETURN','ELIMINATED'].includes(x.phase)||!Array.isArray(x.events)||!Array.isArray(x.wins)||!Array.isArray(x.medics)||!Array.isArray(x.seen))throw Error('player');s=x}}catch(e){note('Saved player data unreadable. Do not clear browser storage.')}
