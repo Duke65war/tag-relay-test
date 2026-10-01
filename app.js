@@ -88,7 +88,7 @@ function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=p
     let timer=document.createElement('p');timer.id='timer';timer.className='timer';st.append(timer);
     let box=document.createElement('div');box.id='offerQR';box.className='qr offerqr';st.append(box);
     let p=document.createElement('p');p.className='compact';p.textContent='Show your dog tags. Bleedout timer is running.';st.append(p);
-    let tagBtn=document.createElement('button');tagBtn.className='tagButton';tagBtn.innerHTML='<span class="tagHole"></span><img src="./dogtag.svg" alt="" class="tagIcon"><span class="tagText">'+s.name+"'s TAGS</span>";tagBtn.onclick=()=>scan('play','tag');st.append(tagBtn);
+    let tagBtn=document.createElement('button');tagBtn.className='tagButton';let span=document.createElement('span');span.className='tagButtonText';span.textContent=s.name.toUpperCase()+"'S";tagBtn.appendChild(span);tagBtn.onclick=()=>scan('play','tag');st.append(tagBtn);
     let hint=document.createElement('p');hint.className='compact';hint.textContent='Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.';st.append(hint);
     secondsLeft();refreshOffer();
   } else if(ret||dead){
