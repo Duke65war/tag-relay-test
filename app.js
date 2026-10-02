@@ -9,6 +9,7 @@ const BASES={
  'Jail':{lat:-37.307804,lng:174.689032,group:'secondary'},
  'Bonfire':{lat:-37.307160,lng:174.690905,group:'secondary'},
  'L-shed':{lat:-37.307798,lng:174.689366,group:'secondary'},
+ 'Gulag':{lat:-37.307002,lng:174.689703,group:'secondary'},
  'Safe Zone':{lat:-37.308053,lng:174.689799,group:'safe'}
 };
 const ANCHOR_LOCS={
@@ -177,16 +178,15 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
 /* --- MAP --- */
 (function(){
   let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),markersBox=$('mapMarkers'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus');
-  let tools={grid:$('mapGridBtn'),loc:$('mapLocBtn'),cal:$('mapCalBtn')};
+  let debugPanel=$('mapDebugPanel'),debugText=$('mapDebugText');
+  let tools={grid:$('mapGridBtn'),loc:$('mapLocBtn'),cal:$('mapCalBtn'),debug:$('mapDebugBtn')};
   if(!overlay||!viewport||!inner||!img||!gridLayer)return;
   let scale=1,tx=0,ty=0,startScale=1,startTx=0,startTy=0,startDist=0,startMidX=0,startMidY=0,startX=0,startY=0,pinching=false,panning=false,lastLift=0,wasSingle=false,gridOn=false,calLock=false;
   function showBanner(msg,ms){banner.textContent=msg;banner.style.display='block';if(ms)setTimeout(()=>{if(banner.textContent===msg)banner.style.display='none'},ms)}
   function showStatus(msg){if(msg){status.textContent=msg;status.style.display='block'}else{status.style.display='none'}}
   function apply(){
     inner.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';
-    document.querySelectorAll('.mapMarker').forEach(el=>{
-      el.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';
-    });
+    document.querySelectorAll('.mapMarker').forEach(el=>{el.style.transform='translate(-50%,-50%) scale('+(1/scale)+')'});
     dot.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';
     youLabel.style.transform='translate(-50%,30px) scale('+(1/scale)+')';
   }
@@ -199,89 +199,17 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
   function loadAnchors(){try{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){const a=JSON.parse(raw);if(a.a&&a.b&&typeof a.a.xPct==='number'&&typeof a.b.xPct==='number')anchors=a}}catch(e){}}
   function saveAnchors(){try{localStorage.setItem(ANCHOR_KEY,JSON.stringify(anchors))}catch(e){}}
   function getImgDims(){const iw=img.naturalWidth||img.clientWidth||1,ih=img.naturalHeight||img.clientHeight||1;return {iw,ih}}
-  function computeMetersPerPx(){if(!anchors||!anchors.a||!anchors.b)return null;const a=anchors.a,b=anchors.b;const {iw,ih}=getImgDims();const latAvg=((a.lat+b.lat)/2)*Math.PI/180;const mLat=111320,mLng=111320*Math.cos(latAvg);const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);if(lenG<1||lenP<1e-6)return null;return lenG/lenP}
   function gpsToPct(lat,lng){if(!anchors||!anchors.a||!anchors.b)return null;const a=anchors.a,b=anchors.b;const {iw,ih}=getImgDims();const latAvg=((a.lat+b.lat)/2)*Math.PI/180;const mLat=111320,mLng=111320*Math.cos(latAvg);const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);if(lenG<1||lenP<1e-6)return null;const mPerPx=lenG/lenP;const dxUser=(lng-a.lng)*mLng;const dyUser=(lat-a.lat)*mLat;const pxUser=dxUser/mPerPx;const pyUser=-dyUser/mPerPx;return {xPct:a.xPct+pxUser/iw,yPct:a.yPct+pyUser/ih}}
-  function computeGridSpacingNativePx(){const mPerPx=computeMetersPerPx();if(!mPerPx)return null;return 10/mPerPx}
-  function applyGrid(){
-    if(!anchors||!anchors.a||!anchors.b){gridLayer.classList.remove('on');return}
-    const spacingNative=computeGridSpacingNativePx();
-    if(!spacingNative){gridLayer.classList.remove('on');return}
-    const {iw,ih}=getImgDims();
-    const layoutW=img.clientWidth||iw;
-    const layoutH=img.clientHeight||ih;
-    const spacingX=(spacingNative/iw)*layoutW;
-    const spacingY=(spacingNative/ih)*layoutH;
-    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><line x1="0" y1="0" x2="2" y2="0" stroke="black" stroke-width="0.15"/><line x1="4" y1="0" x2="6" y2="0" stroke="black" stroke-width="0.15"/><line x1="8" y1="0" x2="10" y2="0" stroke="black" stroke-width="0.15"/><line x1="0" y1="0" x2="0" y2="2" stroke="black" stroke-width="0.15"/><line x1="0" y1="4" x2="0" y2="6" stroke="black" stroke-width="0.15"/><line x1="0" y1="8" x2="0" y2="10" stroke="black" stroke-width="0.15"/></svg>';
-    const b64=btoa(svg);
-    gridLayer.style.backgroundImage='url("data:image/svg+xml;base64,'+b64+'")';
-    gridLayer.style.backgroundSize=spacingX+'px '+spacingY+'px';
-    gridLayer.classList.toggle('on',gridOn);
-  }
-  function drawMarker(name,lat,lng,colour,showLabel){
-    if(!markersBox)return;
-    const pct=gpsToPct(lat,lng);
-    if(!pct)return;
-    if(pct.xPct<-0.05||pct.xPct>1.05||pct.yPct<-0.05||pct.yPct>1.05)return;
-    const el=document.createElement('div');
-    el.className='mapMarker';
-    el.style.left=(pct.xPct*100)+'%';
-    el.style.top=(pct.yPct*100)+'%';
-    el.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';
-    const d=document.createElement('div');
-    d.className='mapMarkerDot';
-    d.style.background=colour;
-    el.appendChild(d);
-    if(showLabel){
-      const l=document.createElement('div');
-      l.className='mapMarkerLabel';
-      l.textContent=name;
-      el.appendChild(l);
-    }
-    markersBox.appendChild(el);
-  }
-  function renderMarkers(){
-    if(!markersBox)return;
-    markersBox.replaceChildren();
-    if(!anchors||!anchors.a||!anchors.b)return;
-    const myTeam=s?s.team:null;
-    const myBaseLabel=myTeam?(myTeam==='A'?s.rules.a:s.rules.b):'';
-    const myBaseName=myTeam?(myTeam==='A'?s.baseA:s.baseB):null;
-    const myColour=myTeam==='A'?'#a7222c':(myTeam==='B'?'#1c5daa':'#888');
-    // Safe Zone always
+  function computeGridSpacingNativePx(){if(!anchors||!anchors.a||!anchors.b)return null;const a=anchors.a,b=anchors.b;const {iw,ih}=getImgDims();const latAvg=((a.lat+b.lat)/2)*Math.PI/180;const mLat=111320,mLng=111320*Math.cos(latAvg);const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);if(lenG<1||lenP<1e-6)return null;return 10/(lenG/lenP)}
+  function applyGrid(){if(!anchors||!anchors.a||!anchors.b){gridLayer.classList.remove('on');return}const spacingNative=computeGridSpacingNativePx();if(!spacingNative){gridLayer.classList.remove('on');return}const {iw,ih}=getImgDims();const layoutW=img.clientWidth||iw;const layoutH=img.clientHeight||ih;const spacingX=(spacingNative/iw)*layoutW;const spacingY=(spacingNative/ih)*layoutH;const svg='<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><line x1="0" y1="0" x2="2" y2="0" stroke="black" stroke-width="0.15"/><line x1="4" y1="0" x2="6" y2="0" stroke="black" stroke-width="0.15"/><line x1="8" y1="0" x2="10" y2="0" stroke="black" stroke-width="0.15"/><line x1="0" y1="0" x2="0" y2="2" stroke="black" stroke-width="0.15"/><line x1="0" y1="4" x2="0" y2="6" stroke="black" stroke-width="0.15"/><line x1="0" y1="8" x2="0" y2="10" stroke="black" stroke-width="0.15"/></svg>';const b64=btoa(svg);gridLayer.style.backgroundImage='url("data:image/svg+xml;base64,'+b64+'")';gridLayer.style.backgroundSize=spacingX+'px '+spacingY+'px';gridLayer.classList.toggle('on',gridOn)}
+  function drawMarker(name,lat,lng,colour,showLabel){if(!markersBox)return;const pct=gpsToPct(lat,lng);if(!pct)return;if(pct.xPct<-0.05||pct.xPct>1.05||pct.yPct<-0.05||pct.yPct>1.05)return;const el=document.createElement('div');el.className='mapMarker';el.style.left=(pct.xPct*100)+'%';el.style.top=(pct.yPct*100)+'%';el.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';const d=document.createElement('div');d.className='mapMarkerDot';d.style.background=colour;el.appendChild(d);if(showLabel){const l=document.createElement('div');l.className='mapMarkerLabel';l.textContent=name;el.appendChild(l)}markersBox.appendChild(el)}
+  function renderMarkers(){if(!markersBox)return;markersBox.replaceChildren();if(!anchors||!anchors.a||!anchors.b)return;const myTeam=s?s.team:null;const myBaseLabel=myTeam?(myTeam==='A'?s.rules.a:s.rules.b):'';const myBaseName=myTeam?(myTeam==='A'?s.baseA:s.baseB):null;const myColour=myTeam==='A'?'#a7222c':(myTeam==='B'?'#1c5daa':'#888');
     drawMarker('SAFE ZONE',BASES['Safe Zone'].lat,BASES['Safe Zone'].lng,'#d4af37',true);
-    // Own base (if set)
-    if(myBaseName&&BASES[myBaseName]){
-      drawMarker((myBaseLabel||'')+' TEAM BASE',BASES[myBaseName].lat,BASES[myBaseName].lng,myColour,true);
-    }
-    // All other bases only when grid is on
-    if(gridOn){
-      Object.keys(BASES).forEach(name=>{
-        if(name==='Safe Zone')return;
-        if(name===myBaseName)return;
-        drawMarker(name,BASES[name].lat,BASES[name].lng,'#888',true);
-      });
-    }
-    // Re-apply scale counter to fresh markers
-    document.querySelectorAll('.mapMarker').forEach(el=>{
-      el.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';
-    });
-  }
+    if(myBaseName&&BASES[myBaseName]){drawMarker((myBaseLabel||'')+' TEAM BASE',BASES[myBaseName].lat,BASES[myBaseName].lng,myColour,true)}
+    if(gridOn){Object.keys(BASES).forEach(name=>{if(name==='Safe Zone')return;if(name===myBaseName)return;drawMarker(name,BASES[name].lat,BASES[name].lng,'#888',true)})}
+    document.querySelectorAll('.mapMarker').forEach(el=>{el.style.transform='translate(-50%,-50%) scale('+(1/scale)+')'})}
   function updateStatusDefault(){if(anchors&&anchors.a&&anchors.b)showStatus('Anchors set. Grid + GPS ready.');else showStatus('No anchors. Tap CAL to set.')}
-  function updateBlueDot(lat,lng,accuracy){
-    if(!anchors||!anchors.a||!anchors.b){dot.style.display='none';youLabel.style.display='none';return}
-    const pct=gpsToPct(lat,lng);
-    if(!pct){dot.style.display='none';youLabel.style.display='none';return}
-    dot.style.left=(pct.xPct*100)+'%';
-    dot.style.top=(pct.yPct*100)+'%';
-    dot.style.display='block';
-    youLabel.style.left=(pct.xPct*100)+'%';
-    youLabel.style.top=(pct.yPct*100)+'%';
-    youLabel.textContent='You ±'+Math.round(accuracy||0)+'m';
-    youLabel.style.display='block';
-    dot.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';
-    youLabel.style.transform='translate(-50%,30px) scale('+(1/scale)+')';
-    if(pct.xPct<0||pct.xPct>1||pct.yPct<0||pct.yPct>1){showBanner('You appear to be off the map ('+(pct.xPct*100).toFixed(0)+'%, '+(pct.yPct*100).toFixed(0)+'%)',5000)}
-  }
+  function updateBlueDot(lat,lng,accuracy){if(!anchors||!anchors.a||!anchors.b){dot.style.display='none';youLabel.style.display='none';return}const pct=gpsToPct(lat,lng);if(!pct){dot.style.display='none';youLabel.style.display='none';return}dot.style.left=(pct.xPct*100)+'%';dot.style.top=(pct.yPct*100)+'%';dot.style.display='block';youLabel.style.left=(pct.xPct*100)+'%';youLabel.style.top=(pct.yPct*100)+'%';youLabel.textContent='You ±'+Math.round(accuracy||0)+'m';youLabel.style.display='block';dot.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';youLabel.style.transform='translate(-50%,30px) scale('+(1/scale)+')';if(pct.xPct<0||pct.xPct>1||pct.yPct<0||pct.yPct>1){showBanner('You appear to be off the map ('+(pct.xPct*100).toFixed(0)+'%, '+(pct.yPct*100).toFixed(0)+'%)',5000)}}
   function startWatch(){if(mapWatchId!==null)return;if(!navigator.geolocation){showBanner('GPS not supported on this device',4000);return}try{mapWatchId=navigator.geolocation.watchPosition(p=>updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy),e=>{dot.style.display='none';youLabel.style.display='none';showBanner('GPS error: '+e.message+' (code '+e.code+')',5000)},{enableHighAccuracy:true,maximumAge:5000,timeout:20000})}catch(e){showBanner('GPS exception: '+e.message,5000)}}
   function stopWatch(){if(mapWatchId!==null){try{navigator.geolocation.clearWatch(mapWatchId)}catch(e){}mapWatchId=null}}
   function enterCalibrate(){calibrating={step:1};calLock=false;showBanner('Step 1 of 2: Tap the map where Bird Rd Cnr is (western field corner).');tools.cal.classList.add('active')}
@@ -319,6 +247,13 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
   tools.grid.onclick=()=>{gridOn=!gridOn;tools.grid.classList.toggle('active',gridOn);applyGrid();renderMarkers()};
   tools.loc.onclick=()=>{if(!anchors||!anchors.a||!anchors.b){showBanner('Set anchors first (tap CAL)',2500);return}if(!navigator.geolocation){showBanner('GPS not supported',3000);return}showBanner('Getting GPS...');navigator.geolocation.getCurrentPosition(p=>{banner.style.display='none';showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);startWatch()},e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),{enableHighAccuracy:true,timeout:20000,maximumAge:0})};
   tools.cal.onclick=()=>{if(calibrating){exitCalibrate();return}if(anchors&&anchors.a){if(!confirm('Re-calibrate anchors?'))return;anchors=null;try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}dot.style.display='none';youLabel.style.display='none';gridLayer.classList.remove('on');gridOn=false;tools.grid.classList.remove('active');renderMarkers()}enterCalibrate()};
+  tools.debug.onclick=()=>{
+    const raw=localStorage.getItem(ANCHOR_KEY);
+    if(raw){try{debugText.value=JSON.stringify(JSON.parse(raw),null,2)}catch(e){debugText.value=raw}}else{debugText.value='No anchors set yet. Run Cal first.'}
+    debugPanel.classList.add('on');
+  };
+  $('mapDebugClose').onclick=()=>debugPanel.classList.remove('on');
+  $('mapDebugCopy').onclick=()=>{debugText.select();debugText.setSelectionRange(0,99999);try{document.execCommand('copy')}catch(e){}try{navigator.clipboard&&navigator.clipboard.writeText(debugText.value)}catch(e){}showBanner('Copied to clipboard',1500)};
   loadAnchors();
 })();
 /* --- INIT --- */
