@@ -13,7 +13,7 @@ const BASES={
 };
 const ANCHOR_LOCS={
  'Bird Rd Cnr':{lat:-37.306483,lng:174.0688893},
- 'Container':{lat:-37.308290,lng:174.0691757}
+ 'Bonfire':{lat:-37.307160,lng:174.0690905}
 };
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,4}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
@@ -47,7 +47,7 @@ function hostDraw(type,t,target){if(!h)return;let box=$(target);box.replaceChild
 function renderSetup(){$('setup').classList.toggle('hidden',!!s);$('play').classList.toggle('hidden',!s);if(s)return;let v=h&&view==='choice'?'hostPanel':view;for(let id of ['choice','hostForm','hostPanel','joinPanel','preview'])$(id).classList.toggle('hidden',id!==v);if(v==='hostPanel'&&h){$('hostInfo').textContent=`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;if(!$('hostQR').childNodes.length)hostDraw('J','A','hostQR')}if(v==='preview'&&pending){$('previewTeam').textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;$('previewRules').textContent=ruleText(pending.rules)}}
 function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';document.body.classList.toggle('returning',ret);document.body.classList.toggle('mist',dead);$('playarea').classList.toggle('teamB',s.team==='B');$('identity').textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;let bar=$('bar');bar.replaceChildren();s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;bar.append(el)});bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));$('actions').className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');$('hit').disabled=phase!=='ACTIVE';$('scan').disabled=phase!=='ACTIVE'&&!ret;let st=$('stage');st.replaceChildren();offerSlot=-1;offerShown='';
   if(s.outbound){let head=document.createElement('h2');head.textContent=s.outbound.type==='T'?'TAGS TAKEN':'HEALED';st.append(head);let timer=document.createElement('p');timer.className='timer';let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);let box=document.createElement('div');box.className='qr offerqr';st.append(box);makeQR(box,returnCode(s.outbound.type,{id:s.id,name:s.name},{id:s.outbound.offer,deadline:s.outbound.deadline}));let p=document.createElement('p');p.className='compact';p.textContent='Show this to '+s.outbound.victimName+'. They scan it to confirm.';st.append(p);let b=document.createElement('button');b.className='alt';b.textContent='CLOSE';b.onclick=()=>{edit(x=>{x.outbound=null})};st.append(b);
-  }else if(offered()){let head=document.createElement('h2');head.textContent=`LIFE ${s.offer.n} OFFERED`;st.append(head);let timer=document.createElement('p');timer.id='timer';timer.className='timer';st.append(timer);let box=document.createElement('div');box.id='offerQR';box.className='qr offerqr';st.append(box);let p=document.createElement('p');p.className='compact';p.textContent='Show your dog tags. Bleedout timer is running.';st.append(p);let tagBtn=document.createElement('button');tagBtn.className='tagButton';let span=document.createElement('span');span.className='tagButtonText';span.textContent=s.name.toUpperCase()+"'S";tagBtn.appendChild(span);tagBtn.onclick=()=>scan('play','tag');st.append(tagBtn);let hint=document.createElement('p');hint.className='compact';hint.textContent='Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.';st.append(hint);secondsLeft();refreshOffer();
+  }else if(offered()){let head=document.createElement('h2');head.textContent=`LIFE ${s.offer.n} OFFERED`;st.append(head);let timer=document.createElement('p');timer.id='timer';timer.className='timer';st.append(timer);let box=document.createElement('div');box.id='offerQR';box.className='qr offerqr';st.append(box);let p=document.createElement('p');p.className='compact';p.textContent='Show your dog tags. Bleedout timer is running.';st.append(p);let tagBtn=document.createElement('button');tagBtn.className='tagButton';let span=document.createElement('span');span.className='tagButtonText';span.textContent=s.name.toUpperCase()+"'S";const len=s.name.length;let fs;if(len<=13){fs=32;}else{fs=Math.max(16, 220/(len*0.72));}span.style.fontSize=fs+'px';tagBtn.appendChild(span);tagBtn.onclick=()=>scan('play','tag');st.append(tagBtn);let hint=document.createElement('p');hint.className='compact';hint.textContent='Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.';st.append(hint);secondsLeft();refreshOffer();
   }else if(ret||dead){let head=document.createElement('h2');head.textContent=ret?'RESPAWN AT BASE':'ELIMINATED';st.append(head);if(dead){let gif=document.createElement('img');gif.src='./eliminated.gif';gif.alt='Eliminated';gif.style.maxWidth='80%';gif.style.borderRadius='12px';gif.style.margin='10px 0';st.append(gif)}let p=document.createElement('p');p.textContent=ret?'Scan your assigned base. Spent finite lives stay red.':'Leave play safely. Help and history remain below.';st.append(p);
   }else{let p=document.createElement('p');p.className='teamBadge';p.textContent=`${s.name} : ${s.team==='A'?s.rules.a:s.rules.b}`;st.append(p);let panel=document.createElement('div');panel.className='readyPanel';let image=document.createElement('img');image.src='./war-adventures-logo.png';image.alt='War Adventures logo';image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';panel.append(word)};panel.append(image);st.append(panel)}
   let groups=new Map();for(let w of s.wins){let g=groups.get(w.owner)||{name:w.name,items:[]};g.items.push(w);groups.set(w.owner,g)}let wall=$('trophies');wall.replaceChildren();if(!groups.size)wall.textContent='None yet';for(let g of groups.values()){let b=document.createElement('button');b.className='tile';let img=document.createElement('img');img.src='./dogtag.svg';img.alt='';img.style.width='22px';img.style.height='22px';img.style.verticalAlign='middle';let strong=document.createElement('strong');strong.textContent=' '+g.items.length;let label=document.createElement('span');label.textContent=g.name.slice(0,4).toUpperCase();b.append(img,strong,label);b.onclick=()=>{let area=$('dialogText');area.replaceChildren();let hh=document.createElement('h2');hh.textContent=g.name;area.append(hh);for(let w of [...g.items].reverse()){let p=document.createElement('p');p.textContent=`${w.team}${w.n} · ${w.offer.slice(0,10)} · ${new Date(w.capturedAt).toLocaleString()}`;area.append(p)}$('dialog').showModal()};wall.append(b)}$('medals').textContent=s.medics.length?'💉 '+s.medics.length+' medic assists':'';$('history').replaceChildren();for(let e of [...s.events].reverse()){let li=document.createElement('li');li.textContent=e.at+': '+e.message;$('history').append(li)}$('pendingBox').classList.toggle('hidden',!s.medPending);$('pendingInfo').textContent=s.medPending?`Waiting for fresh second scan of ${s.medPending.name} before ${new Date(s.medPending.deadline).toLocaleString()}`:'';$('hostTools').classList.toggle('hidden',!h||h.gid!==s.gid)}
@@ -65,12 +65,10 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
   let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus');
   let tools={grid:$('mapGridBtn'),loc:$('mapLocBtn'),cal:$('mapCalBtn')};
   if(!overlay||!viewport||!inner||!img||!gridLayer)return;
-  let scale=1,tx=0,ty=0,startScale=1,startTx=0,startTy=0,startDist=0,startMidX=0,startMidY=0,startX=0,startY=0,pinching=false,panning=false,lastLift=0,wasSingle=false,gridOn=false;
+  let scale=1,tx=0,ty=0,startScale=1,startTx=0,startTy=0,startDist=0,startMidX=0,startMidY=0,startX=0,startY=0,pinching=false,panning=false,lastLift=0,wasSingle=false,gridOn=false,calLock=false;
 
-  // --- DIAGNOSTIC HELPERS ---
   function showBanner(msg,ms){banner.textContent=msg;banner.style.display='block';if(ms)setTimeout(()=>{if(banner.textContent===msg)banner.style.display='none'},ms)}
   function showStatus(msg){if(msg){status.textContent=msg;status.style.display='block'}else{status.style.display='none'}}
-
   function apply(){inner.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'}
   function reset(){scale=1;tx=0;ty=0;apply()}
   function dist(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)}
@@ -81,49 +79,75 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
 
   function loadAnchors(){try{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){const a=JSON.parse(raw);if(a.a&&a.b&&typeof a.a.xPct==='number'&&typeof a.b.xPct==='number')anchors=a}}catch(e){}}
   function saveAnchors(){try{localStorage.setItem(ANCHOR_KEY,JSON.stringify(anchors))}catch(e){}}
+  function updateStatusDefault(){if(anchors&&anchors.a&&anchors.b)showStatus('Anchors set. Grid + GPS ready.');else showStatus('No anchors. Tap CAL to set.')}
 
-  function updateStatusDefault(){
-    if(anchors&&anchors.a&&anchors.b){showStatus('Anchors set. Grid + GPS ready.')}
-    else{showStatus('No anchors. Tap CAL to set.')}
-  }
+  // Correct meters/pixel calculation using native image dimensions
+  function getImgDims(){const iw=img.naturalWidth||img.clientWidth||1,ih=img.naturalHeight||img.clientHeight||1;return {iw,ih}}
 
-  function metersBetween(a,b){
+  function computeMetersPerPx(){
+    if(!anchors||!anchors.a||!anchors.b)return null;
+    const a=anchors.a,b=anchors.b;
+    const {iw,ih}=getImgDims();
     const latAvg=((a.lat+b.lat)/2)*Math.PI/180;
     const mLat=111320,mLng=111320*Math.cos(latAvg);
-    const dx=(b.lng-a.lng)*mLng,dy=(b.lat-a.lat)*mLat;
-    return Math.hypot(dx,dy);
+    const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;
+    const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;
+    const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);
+    if(lenG<1||lenP<1e-6)return null;
+    return lenG/lenP; // meters per native image pixel
   }
 
-  function pixelsBetweenOnDisplay(a,b){
-    const rect=img.getBoundingClientRect();
-    const dx=(b.xPct-a.xPct)*rect.width,dy=(b.yPct-a.yPct)*rect.height;
-    return Math.hypot(dx,dy);
-  }
-
-  function computeGridSpacingPx(){
-    if(!anchors||!anchors.a||!anchors.b)return null;
-    const meters=metersBetween(anchors.a,anchors.b);
-    const px=pixelsBetweenOnDisplay(anchors.a,anchors.b);
-    if(meters<1||px<1)return null;
-    return (10/meters)*px; // pixels per 10m at current display scale
+  function computeGridSpacingNativePx(){
+    const mPerPx=computeMetersPerPx();
+    if(!mPerPx)return null;
+    return 10/mPerPx; // native-image px per 10m of real world
   }
 
   function applyGrid(){
     if(!anchors||!anchors.a||!anchors.b){gridLayer.classList.remove('on');return}
-    const spacing=computeGridSpacingPx();
-    if(!spacing){gridLayer.classList.remove('on');return}
+    const spacingNative=computeGridSpacingNativePx();
+    if(!spacingNative){gridLayer.classList.remove('on');return}
+    const {iw,ih}=getImgDims();
+    // Convert native-image-px spacing to CSS px on the current (untransformed) layout
+    const layoutW=img.clientWidth||iw;
+    const layoutH=img.clientHeight||ih;
+    const spacingX=(spacingNative/iw)*layoutW;
+    const spacingY=(spacingNative/ih)*layoutH;
+    // 10x10 SVG tile: 3 dashes each 2 units, 2 gaps each 2 units
     const svg='<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'+
-      '<line x1="0" y1="0" x2="2" y2="0" stroke="black" stroke-width="0.2"/>'+
-      '<line x1="4" y1="0" x2="6" y2="0" stroke="black" stroke-width="0.2"/>'+
-      '<line x1="8" y1="0" x2="10" y2="0" stroke="black" stroke-width="0.2"/>'+
-      '<line x1="0" y1="0" x2="0" y2="2" stroke="black" stroke-width="0.2"/>'+
-      '<line x1="0" y1="4" x2="0" y2="6" stroke="black" stroke-width="0.2"/>'+
-      '<line x1="0" y1="8" x2="0" y2="10" stroke="black" stroke-width="0.2"/>'+
+      '<line x1="0" y1="0" x2="2" y2="0" stroke="black" stroke-width="0.15"/>'+
+      '<line x1="4" y1="0" x2="6" y2="0" stroke="black" stroke-width="0.15"/>'+
+      '<line x1="8" y1="0" x2="10" y2="0" stroke="black" stroke-width="0.15"/>'+
+      '<line x1="0" y1="0" x2="0" y2="2" stroke="black" stroke-width="0.15"/>'+
+      '<line x1="0" y1="4" x2="0" y2="6" stroke="black" stroke-width="0.15"/>'+
+      '<line x1="0" y1="8" x2="0" y2="10" stroke="black" stroke-width="0.15"/>'+
       '</svg>';
-    const url='url("data:image/svg+xml;utf8,'+encodeURIComponent(svg)+'")';
-    gridLayer.style.backgroundImage=url;
-    gridLayer.style.backgroundSize=spacing+'px '+spacing+'px';
+    const b64=btoa(svg);
+    gridLayer.style.backgroundImage='url("data:image/svg+xml;base64,'+b64+'")';
+    gridLayer.style.backgroundSize=spacingX+'px '+spacingY+'px';
     gridLayer.classList.toggle('on',gridOn);
+  }
+
+  function gpsToPct(lat,lng){
+    if(!anchors||!anchors.a||!anchors.b)return null;
+    const a=anchors.a,b=anchors.b;
+    const {iw,ih}=getImgDims();
+    const latAvg=((a.lat+b.lat)/2)*Math.PI/180;
+    const mLat=111320,mLng=111320*Math.cos(latAvg);
+    const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;
+    const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;
+    const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);
+    if(lenG<1||lenP<1e-6)return null;
+    const mPerPx=lenG/lenP;
+    // User offset from anchor A in meters
+    const dxUser=(lng-a.lng)*mLng; // east meters
+    const dyUser=(lat-a.lat)*mLat; // north meters
+    // If the map is north-up: east = +x, north = -y (image y-down)
+    const pxUser=dxUser/mPerPx;
+    const pyUser=-dyUser/mPerPx;
+    const xPct=a.xPct+pxUser/iw;
+    const yPct=a.yPct+pyUser/ih;
+    return {xPct,yPct};
   }
 
   function updateBlueDot(lat,lng,accuracy){
@@ -138,25 +162,8 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
     youLabel.textContent='You ±'+Math.round(accuracy||0)+'m';
     youLabel.style.display='block';
     if(pct.xPct<0||pct.xPct>1||pct.yPct<0||pct.yPct>1){
-      showBanner('You appear to be off the map (position '+(pct.xPct*100).toFixed(0)+'%, '+(pct.yPct*100).toFixed(0)+'%)',5000);
+      showBanner('You appear to be off the map ('+(pct.xPct*100).toFixed(0)+'%, '+(pct.yPct*100).toFixed(0)+'%)',5000);
     }
-  }
-
-  function gpsToPct(lat,lng){
-    if(!anchors||!anchors.a||!anchors.b)return null;
-    const a=anchors.a,b=anchors.b;
-    const latAvg=((a.lat+b.lat)/2)*Math.PI/180;
-    const mLat=111320,mLng=111320*Math.cos(latAvg);
-    const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;
-    const vpx=b.xPct-a.xPct, vpy=b.yPct-a.yPct;
-    const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);
-    if(lenG<1||lenP<1e-9)return null;
-    const scaleP=lenP/lenG;
-    const rot=Math.atan2(vpy,vpx)-Math.atan2(vgy,vgx);
-    const dx=(lng-a.lng)*mLng,dy=(lat-a.lat)*mLat;
-    const cosR=Math.cos(rot),sinR=Math.sin(rot);
-    const rx=cosR*dx-sinR*dy, ry=sinR*dx+cosR*dy;
-    return {xPct:a.xPct+rx*scaleP, yPct:a.yPct+ry*scaleP};
   }
 
   function startWatch(){
@@ -174,27 +181,39 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
 
   function enterCalibrate(){
     calibrating={step:1};
-    showBanner('Step 1 of 2: Tap the map where Bird Rd Cnr is');
+    calLock=false;
+    showBanner('Step 1 of 2: Tap the map where Bird Rd Cnr is (western field corner).');
     tools.cal.classList.add('active');
   }
-  function exitCalibrate(){calibrating=null;banner.style.display='none';tools.cal.classList.remove('active')}
+  function exitCalibrate(){calibrating=null;calLock=false;banner.style.display='none';tools.cal.classList.remove('active')}
 
   function handleCalibrateTap(clientX,clientY){
-    // Convert to native-image-relative percent (undoing any transform)
+    if(calLock)return;
     const rect=img.getBoundingClientRect();
-    const nativeW=img.naturalWidth||rect.width;
-    const nativeH=img.naturalHeight||rect.height;
-    // rect is the transformed bounding box on screen
-    const xRatio=(clientX-rect.left)/rect.width; // 0..1 within displayed image
+    const xRatio=(clientX-rect.left)/rect.width;
     const yRatio=(clientY-rect.top)/rect.height;
     if(xRatio<0||xRatio>1||yRatio<0||yRatio>1){showBanner('Tap inside the image',2500);return}
-    const xPct=xRatio,yPct=yRatio;
+    const {iw,ih}=getImgDims();
     if(calibrating.step===1){
-      calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct,yPct};
+      calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct:xRatio,yPct:yRatio,name:'Bird Rd Cnr'};
       calibrating.step=2;
-      showBanner('Step 2 of 2: Tap the map where Container is');
+      calLock=true;
+      showBanner('Locked. Now tap Bonfire — 1 second...',1000);
+      setTimeout(()=>{
+        calLock=false;
+        showBanner('Step 2 of 2: Tap the map where Bonfire is (north-east of field).');
+      },1000);
     }else if(calibrating.step===2){
-      calibrating.b={lat:ANCHOR_LOCS['Container'].lat,lng:ANCHOR_LOCS['Container'].lng,xPct,yPct};
+      // Validate the two taps are far enough apart
+      const dxPx=(xRatio-calibrating.a.xPct)*iw;
+      const dyPx=(yRatio-calibrating.a.yPct)*ih;
+      const tapDistPx=Math.hypot(dxPx,dyPx);
+      const imgDiagPx=Math.hypot(iw,ih);
+      if(tapDistPx<imgDiagPx*0.15){
+        showBanner('Taps too close ('+Math.round(tapDistPx)+'px). Pick two points far apart.',3500);
+        return;
+      }
+      calibrating.b={lat:ANCHOR_LOCS['Bonfire'].lat,lng:ANCHOR_LOCS['Bonfire'].lng,xPct:xRatio,yPct:yRatio,name:'Bonfire'};
       anchors={a:calibrating.a,b:calibrating.b};
       saveAnchors();
       exitCalibrate();
@@ -221,17 +240,9 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
     else if(e.touches.length===1){pinching=false;panning=true;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}
   },{passive:true});
 
-  // Mouse support for desktop testing
   viewport.addEventListener('click',function(e){if(calibrating)handleCalibrateTap(e.clientX,e.clientY)});
 
-  $('mapButton').onclick=()=>{
-    reset();
-    overlay.classList.remove('hidden');
-    loadAnchors();
-    updateStatusDefault();
-    applyGrid();
-    if(anchors&&anchors.a)startWatch();
-  };
+  $('mapButton').onclick=()=>{reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();if(anchors&&anchors.a)startWatch();};
   $('mapClose').onclick=()=>{overlay.classList.add('hidden');reset();stopWatch()};
 
   tools.grid.onclick=()=>{
