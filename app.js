@@ -15,7 +15,7 @@ const ANCHOR_LOCS={
  'Bird Rd Cnr':{lat:-37.306483,lng:174.0688893},
  'Container':{lat:-37.308290,lng:174.0691757}
 };
-let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null,mapImgNaturalW=0,mapImgNaturalH=0;
+let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,4}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
 const ruleOK=r=>r&&(/^(U|[1-9]|1[0-9]|20)$/.test(String(r.lives)))&&Number.isInteger(r.seconds)&&r.seconds>=30&&r.seconds<=600&&['none','one','two'].includes(r.medic)&&labelOK(r.a)&&labelOK(r.b)&&r.a!==r.b;
 const ruleText=r=>`${r.lives==='U'?'Unlimited':r.lives+' lives'} · ${r.seconds}s · ${r.medic==='none'?'no medic':r.medic==='one'?'one-scan medic':'two-scan medic (30s)'}`;
@@ -59,61 +59,154 @@ $('hostOpen').onclick=()=>{view='hostForm';render()};$('hostBack').onclick=()=>{
 for(let [id,type,t,target] of [['hostJA','J','A','hostQR'],['hostJB','J','B','hostQR'],['hostBA','B','A','hostQR'],['hostBB','B','B','hostQR'],['playJA','J','A','playHostQR'],['playJB','J','B','playHostQR'],['playBA','B','A','playHostQR'],['playBB','B','B','playHostQR']])$(id).onclick=()=>hostDraw(type,t,target);
 $('selfA').onclick=()=>{try{getJoin(joinCode('A'))}catch(e){note(e.message)}};$('selfB').onclick=()=>{try{getJoin(joinCode('B'))}catch(e){note(e.message)}};
 $('eraseHost').onclick=()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone? Other phones will not be changed.')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}};
-$('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopScan;$('cancelMedic').onclick=cancelMedic;$('export').onclick=()=>{if(s)download()};$('reset').onclick=()=>{if(!s||!confirm('Erase this phone\'s player game and personal history?'))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');view=h?'hostPanel':'choice';render();note('Player reset.')};$('closeDialog').onclick=()=>$('dialog').close();
-/* --- MAP WITH PINCH, PAN, GRID, BLUE DOT, ANCHOR CALIBRATION --- */
+$('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopScan;$('cancelMedic').onclick=cancelMedic;$('export').onclick=()=>{if(s)download()};$('reset').onclick=()=>{if(!s||!confirm("Erase this phone's player game and personal history?"))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');view=h?'hostPanel':'choice';render();note('Player reset.')};$('closeDialog').onclick=()=>$('dialog').close();
+/* --- MAP WITH PINCH, PAN, GRID (map-bound), BLUE DOT, ANCHOR CALIBRATION --- */
 (function(){
-  let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),grid=$('mapGrid'),dot=$('mapBlueDot'),banner=$('mapBanner'),status=$('mapStatus'),tools={grid:$('mapGridBtn'),loc:$('mapLocBtn'),cal:$('mapCalBtn')};
-  if(!overlay||!viewport||!inner||!img)return;
+  let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus');
+  let tools={grid:$('mapGridBtn'),loc:$('mapLocBtn'),cal:$('mapCalBtn')};
+  if(!overlay||!viewport||!inner||!img||!gridLayer)return;
   let scale=1,tx=0,ty=0,startScale=1,startTx=0,startTy=0,startDist=0,startMidX=0,startMidY=0,startX=0,startY=0,pinching=false,panning=false,lastLift=0,wasSingle=false,gridOn=false;
-  function apply(){inner.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';if(dot.style.display!=='none'){dot.style.transform='translate(-50%,-50%) scale('+(1/scale)+')'}}
+
+  // --- DIAGNOSTIC HELPERS ---
+  function showBanner(msg,ms){banner.textContent=msg;banner.style.display='block';if(ms)setTimeout(()=>{if(banner.textContent===msg)banner.style.display='none'},ms)}
+  function showStatus(msg){if(msg){status.textContent=msg;status.style.display='block'}else{status.style.display='none'}}
+
+  function apply(){inner.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'}
   function reset(){scale=1;tx=0;ty=0;apply()}
   function dist(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)}
   function midX(a,b){return (a.clientX+b.clientX)/2}
   function midY(a,b){return (a.clientY+b.clientY)/2}
   function clamp(s){return Math.max(1,Math.min(5,s))}
   function clampPan(){const vw=viewport.clientWidth,vh=viewport.clientHeight,iw=inner.clientWidth*scale,ih=inner.clientHeight*scale,minTx=Math.min(0,vw-iw),minTy=Math.min(0,vh-ih);if(tx>0)tx=0;if(tx<minTx)tx=minTx;if(ty>0)ty=0;if(ty<minTy)ty=minTy}
-  function loadAnchors(){try{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){const a=JSON.parse(raw);if(a.a&&a.b&&typeof a.a.xPct==='number')anchors=a}}catch(e){}}
+
+  function loadAnchors(){try{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){const a=JSON.parse(raw);if(a.a&&a.b&&typeof a.a.xPct==='number'&&typeof a.b.xPct==='number')anchors=a}}catch(e){}}
   function saveAnchors(){try{localStorage.setItem(ANCHOR_KEY,JSON.stringify(anchors))}catch(e){}}
-  function updateStatus(){if(anchors&&anchors.a&&anchors.b){status.textContent='Anchors set. Blue dot ready.';status.style.display='block'}else{status.textContent='No anchors. Tap CAL to set them.';status.style.display='block'}}
+
+  function updateStatusDefault(){
+    if(anchors&&anchors.a&&anchors.b){showStatus('Anchors set. Grid + GPS ready.')}
+    else{showStatus('No anchors. Tap CAL to set.')}
+  }
+
+  function metersBetween(a,b){
+    const latAvg=((a.lat+b.lat)/2)*Math.PI/180;
+    const mLat=111320,mLng=111320*Math.cos(latAvg);
+    const dx=(b.lng-a.lng)*mLng,dy=(b.lat-a.lat)*mLat;
+    return Math.hypot(dx,dy);
+  }
+
+  function pixelsBetweenOnDisplay(a,b){
+    const rect=img.getBoundingClientRect();
+    const dx=(b.xPct-a.xPct)*rect.width,dy=(b.yPct-a.yPct)*rect.height;
+    return Math.hypot(dx,dy);
+  }
+
+  function computeGridSpacingPx(){
+    if(!anchors||!anchors.a||!anchors.b)return null;
+    const meters=metersBetween(anchors.a,anchors.b);
+    const px=pixelsBetweenOnDisplay(anchors.a,anchors.b);
+    if(meters<1||px<1)return null;
+    return (10/meters)*px; // pixels per 10m at current display scale
+  }
+
+  function applyGrid(){
+    if(!anchors||!anchors.a||!anchors.b){gridLayer.classList.remove('on');return}
+    const spacing=computeGridSpacingPx();
+    if(!spacing){gridLayer.classList.remove('on');return}
+    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'+
+      '<line x1="0" y1="0" x2="2" y2="0" stroke="black" stroke-width="0.2"/>'+
+      '<line x1="4" y1="0" x2="6" y2="0" stroke="black" stroke-width="0.2"/>'+
+      '<line x1="8" y1="0" x2="10" y2="0" stroke="black" stroke-width="0.2"/>'+
+      '<line x1="0" y1="0" x2="0" y2="2" stroke="black" stroke-width="0.2"/>'+
+      '<line x1="0" y1="4" x2="0" y2="6" stroke="black" stroke-width="0.2"/>'+
+      '<line x1="0" y1="8" x2="0" y2="10" stroke="black" stroke-width="0.2"/>'+
+      '</svg>';
+    const url='url("data:image/svg+xml;utf8,'+encodeURIComponent(svg)+'")';
+    gridLayer.style.backgroundImage=url;
+    gridLayer.style.backgroundSize=spacing+'px '+spacing+'px';
+    gridLayer.classList.toggle('on',gridOn);
+  }
+
+  function updateBlueDot(lat,lng,accuracy){
+    if(!anchors||!anchors.a||!anchors.b){dot.style.display='none';youLabel.style.display='none';return}
+    const pct=gpsToPct(lat,lng);
+    if(!pct){dot.style.display='none';youLabel.style.display='none';return}
+    dot.style.left=(pct.xPct*100)+'%';
+    dot.style.top=(pct.yPct*100)+'%';
+    dot.style.display='block';
+    youLabel.style.left=(pct.xPct*100)+'%';
+    youLabel.style.top=(pct.yPct*100)+'%';
+    youLabel.textContent='You ±'+Math.round(accuracy||0)+'m';
+    youLabel.style.display='block';
+    if(pct.xPct<0||pct.xPct>1||pct.yPct<0||pct.yPct>1){
+      showBanner('You appear to be off the map (position '+(pct.xPct*100).toFixed(0)+'%, '+(pct.yPct*100).toFixed(0)+'%)',5000);
+    }
+  }
+
   function gpsToPct(lat,lng){
     if(!anchors||!anchors.a||!anchors.b)return null;
     const a=anchors.a,b=anchors.b;
-    const latAvg=(a.lat+b.lat)/2*Math.PI/180;
-    const M_PER_DEG_LAT=111320,M_PER_DEG_LNG=111320*Math.cos(latAvg);
-    const vgx=(b.lng-a.lng)*M_PER_DEG_LNG, vgy=(b.lat-a.lat)*M_PER_DEG_LAT;
+    const latAvg=((a.lat+b.lat)/2)*Math.PI/180;
+    const mLat=111320,mLng=111320*Math.cos(latAvg);
+    const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;
     const vpx=b.xPct-a.xPct, vpy=b.yPct-a.yPct;
-    const lenG=Math.hypot(vgx,vgy), lenP=Math.hypot(vpx,vpy);
+    const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);
     if(lenG<1||lenP<1e-9)return null;
     const scaleP=lenP/lenG;
     const rot=Math.atan2(vpy,vpx)-Math.atan2(vgy,vgx);
-    const dx=(lng-a.lng)*M_PER_DEG_LNG, dy=(lat-a.lat)*M_PER_DEG_LAT;
+    const dx=(lng-a.lng)*mLng,dy=(lat-a.lat)*mLat;
     const cosR=Math.cos(rot),sinR=Math.sin(rot);
     const rx=cosR*dx-sinR*dy, ry=sinR*dx+cosR*dy;
     return {xPct:a.xPct+rx*scaleP, yPct:a.yPct+ry*scaleP};
   }
-  function updateBlueDot(pos){
-    if(!anchors||!anchors.a||!anchors.b){dot.style.display='none';return}
-    const pct=gpsToPct(pos.lat,pos.lng);
-    if(!pct){dot.style.display='none';return}
-    dot.style.left=(pct.xPct*100)+'%';
-    dot.style.top=(pct.yPct*100)+'%';
-    dot.style.display='block';
-    dot.style.transform='translate(-50%,-50%) scale('+(1/scale)+')';
+
+  function startWatch(){
+    if(mapWatchId!==null)return;
+    if(!navigator.geolocation){showBanner('GPS not supported on this device',4000);return}
+    try{
+      mapWatchId=navigator.geolocation.watchPosition(
+        p=>updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy),
+        e=>{dot.style.display='none';youLabel.style.display='none';showBanner('GPS error: '+e.message+' (code '+e.code+')',5000)},
+        {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
+      )
+    }catch(e){showBanner('GPS exception: '+e.message,5000)}
   }
-  function startWatch(){if(mapWatchId!==null)return;if(!navigator.geolocation)return;try{mapWatchId=navigator.geolocation.watchPosition(p=>updateBlueDot({lat:p.coords.latitude,lng:p.coords.longitude}),e=>{dot.style.display='none'},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}catch(e){}}
   function stopWatch(){if(mapWatchId!==null){try{navigator.geolocation.clearWatch(mapWatchId)}catch(e){}mapWatchId=null}}
-  function enterCalibrate(){calibrating={step:1};banner.textContent='Step 1 of 2: Tap the map where Bird Rd Cnr is';banner.style.display='block';tools.cal.classList.add('active')}
-  function exitCalibrate(){calibrating=null;banner.style.display='none';tools.cal.classList.remove('active')}
-  function handleCalibrateTap(clientX,clientY){
-    const rect=img.getBoundingClientRect();
-    const xPct=(clientX-rect.left)/rect.width;
-    const yPct=(clientY-rect.top)/rect.height;
-    if(xPct<0||xPct>1||yPct<0||yPct>1)return;
-    if(calibrating.step===1){calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct,yPct};calibrating.step=2;banner.textContent='Step 2 of 2: Tap the map where Container is'}
-    else if(calibrating.step===2){calibrating.b={lat:ANCHOR_LOCS['Container'].lat,lng:ANCHOR_LOCS['Container'].lng,xPct,yPct};anchors={a:calibrating.a,b:calibrating.b};saveAnchors();exitCalibrate();updateStatus();startWatch()}
+
+  function enterCalibrate(){
+    calibrating={step:1};
+    showBanner('Step 1 of 2: Tap the map where Bird Rd Cnr is');
+    tools.cal.classList.add('active');
   }
+  function exitCalibrate(){calibrating=null;banner.style.display='none';tools.cal.classList.remove('active')}
+
+  function handleCalibrateTap(clientX,clientY){
+    // Convert to native-image-relative percent (undoing any transform)
+    const rect=img.getBoundingClientRect();
+    const nativeW=img.naturalWidth||rect.width;
+    const nativeH=img.naturalHeight||rect.height;
+    // rect is the transformed bounding box on screen
+    const xRatio=(clientX-rect.left)/rect.width; // 0..1 within displayed image
+    const yRatio=(clientY-rect.top)/rect.height;
+    if(xRatio<0||xRatio>1||yRatio<0||yRatio>1){showBanner('Tap inside the image',2500);return}
+    const xPct=xRatio,yPct=yRatio;
+    if(calibrating.step===1){
+      calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct,yPct};
+      calibrating.step=2;
+      showBanner('Step 2 of 2: Tap the map where Container is');
+    }else if(calibrating.step===2){
+      calibrating.b={lat:ANCHOR_LOCS['Container'].lat,lng:ANCHOR_LOCS['Container'].lng,xPct,yPct};
+      anchors={a:calibrating.a,b:calibrating.b};
+      saveAnchors();
+      exitCalibrate();
+      updateStatusDefault();
+      applyGrid();
+      startWatch();
+      showBanner('Anchors set.',2500);
+    }
+  }
+
   viewport.addEventListener('touchstart',function(e){
-    if(calibrating){if(e.touches.length===1){handleCalibrateTap(e.touches[0].clientX,e.touches[0].clientY)}return}
+    if(calibrating){if(e.touches.length===1)handleCalibrateTap(e.touches[0].clientX,e.touches[0].clientY);return}
     if(e.touches.length===2){pinching=true;panning=false;wasSingle=false;startDist=dist(e.touches[0],e.touches[1]);startMidX=midX(e.touches[0],e.touches[1]);startMidY=midY(e.touches[0],e.touches[1]);startScale=scale;startTx=tx;startTy=ty}
     else if(e.touches.length===1){const now=Date.now();if(wasSingle&&now-lastLift<300){overlay.classList.add('hidden');reset();stopWatch();wasSingle=false;return}wasSingle=true;panning=true;pinching=false;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}
   },{passive:true});
@@ -127,11 +220,58 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
     if(e.touches.length===0){if(wasSingle)lastLift=Date.now();pinching=false;panning=false}
     else if(e.touches.length===1){pinching=false;panning=true;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}
   },{passive:true});
-  $('mapButton').onclick=()=>{reset();overlay.classList.remove('hidden');loadAnchors();updateStatus();if(anchors&&anchors.a)startWatch()};
+
+  // Mouse support for desktop testing
+  viewport.addEventListener('click',function(e){if(calibrating)handleCalibrateTap(e.clientX,e.clientY)});
+
+  $('mapButton').onclick=()=>{
+    reset();
+    overlay.classList.remove('hidden');
+    loadAnchors();
+    updateStatusDefault();
+    applyGrid();
+    if(anchors&&anchors.a)startWatch();
+  };
   $('mapClose').onclick=()=>{overlay.classList.add('hidden');reset();stopWatch()};
-  tools.grid.onclick=()=>{gridOn=!gridOn;grid.classList.toggle('on',gridOn);tools.grid.classList.toggle('active',gridOn)};
-  tools.loc.onclick=()=>{if(!anchors||!anchors.a||!anchors.b){banner.textContent='Set anchors first (tap CAL)';banner.style.display='block';setTimeout(()=>banner.style.display='none',2500);return}startWatch();if(navigator.geolocation){navigator.geolocation.getCurrentPosition(p=>updateBlueDot({lat:p.coords.latitude,lng:p.coords.longitude}),e=>{banner.textContent='GPS unavailable';banner.style.display='block';setTimeout(()=>banner.style.display='none',2500)},{enableHighAccuracy:true,timeout:10000})}};
-  tools.cal.onclick=()=>{if(calibrating){exitCalibrate();return}if(anchors&&anchors.a){if(!confirm('Re-calibrate anchors?'))return;anchors=null;try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}}enterCalibrate()};
+
+  tools.grid.onclick=()=>{
+    gridOn=!gridOn;
+    tools.grid.classList.toggle('active',gridOn);
+    if(!anchors||!anchors.a){showBanner('Set anchors first (tap CAL)',2500);gridOn=false;tools.grid.classList.remove('active');return}
+    applyGrid();
+  };
+
+  tools.loc.onclick=()=>{
+    if(!anchors||!anchors.a||!anchors.b){showBanner('Set anchors first (tap CAL)',2500);return}
+    if(!navigator.geolocation){showBanner('GPS not supported',3000);return}
+    showBanner('Getting GPS...');
+    navigator.geolocation.getCurrentPosition(
+      p=>{
+        banner.style.display='none';
+        showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');
+        updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);
+        startWatch();
+      },
+      e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),
+      {enableHighAccuracy:true,timeout:20000,maximumAge:0}
+    );
+  };
+
+  tools.cal.onclick=()=>{
+    if(calibrating){exitCalibrate();return}
+    if(anchors&&anchors.a){
+      if(!confirm('Re-calibrate anchors?'))return;
+      anchors=null;
+      try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}
+      dot.style.display='none';
+      youLabel.style.display='none';
+      gridLayer.classList.remove('on');
+      gridOn=false;
+      tools.grid.classList.remove('active');
+    }
+    enterCalibrate();
+  };
+
   loadAnchors();
 })();
 /* --- INIT --- */
