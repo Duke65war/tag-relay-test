@@ -1,19 +1,19 @@
 (()=>{'use strict';
 const KEY='mash-unit-v4',HOST='mash-unit-v4-host',ANCHOR_KEY='mash-unit-anchors',V='MU4',$=id=>document.getElementById(id),time=()=>Date.now(),hex=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,'0')).join('');
 const BASES={
- 'Jb':{lat:-37.308088,lng:174.0688677,group:'main'},
- 'Diego Garcia':{lat:-37.306542,lng:174.0690556,group:'main'},
- 'Plokstine':{lat:-37.308096,lng:174.0690661,group:'main'},
- 'Church':{lat:-37.307203,lng:174.0689177,group:'main'},
- 'Tramp':{lat:-37.307149,lng:174.0688747,group:'secondary'},
- 'Jail':{lat:-37.307804,lng:174.0689032,group:'secondary'},
- 'Bonfire':{lat:-37.307160,lng:174.0690905,group:'secondary'},
- 'L-shed':{lat:-37.307798,lng:174.0689366,group:'secondary'},
- 'Safe Zone':{lat:-37.308053,lng:174.0689799,group:'safe'}
+ 'Jb':{lat:-37.308088,lng:174.688677,group:'main'},
+ 'Diego Garcia':{lat:-37.306542,lng:174.690556,group:'main'},
+ 'Plokstine':{lat:-37.308096,lng:174.690661,group:'main'},
+ 'Church':{lat:-37.307203,lng:174.689177,group:'main'},
+ 'Tramp':{lat:-37.307149,lng:174.688747,group:'secondary'},
+ 'Jail':{lat:-37.307804,lng:174.689032,group:'secondary'},
+ 'Bonfire':{lat:-37.307160,lng:174.690905,group:'secondary'},
+ 'L-shed':{lat:-37.307798,lng:174.689366,group:'secondary'},
+ 'Safe Zone':{lat:-37.308053,lng:174.689799,group:'safe'}
 };
 const ANCHOR_LOCS={
- 'Bird Rd Cnr':{lat:-37.306483,lng:174.0688893},
- 'Bonfire':{lat:-37.307160,lng:174.0690905}
+ 'Bird Rd Cnr':{lat:-37.306483,lng:174.688893},
+ 'Bonfire':{lat:-37.307160,lng:174.690905}
 };
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,4}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
@@ -47,7 +47,7 @@ function hostDraw(type,t,target){if(!h)return;let box=$(target);box.replaceChild
 function renderSetup(){$('setup').classList.toggle('hidden',!!s);$('play').classList.toggle('hidden',!s);if(s)return;let v=h&&view==='choice'?'hostPanel':view;for(let id of ['choice','hostForm','hostPanel','joinPanel','preview'])$(id).classList.toggle('hidden',id!==v);if(v==='hostPanel'&&h){$('hostInfo').textContent=`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;if(!$('hostQR').childNodes.length)hostDraw('J','A','hostQR')}if(v==='preview'&&pending){$('previewTeam').textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;$('previewRules').textContent=ruleText(pending.rules)}}
 function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';document.body.classList.toggle('returning',ret);document.body.classList.toggle('mist',dead);$('playarea').classList.toggle('teamB',s.team==='B');$('identity').textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;let bar=$('bar');bar.replaceChildren();s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;bar.append(el)});bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));$('actions').className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');$('hit').disabled=phase!=='ACTIVE';$('scan').disabled=phase!=='ACTIVE'&&!ret;let st=$('stage');st.replaceChildren();offerSlot=-1;offerShown='';
   if(s.outbound){let head=document.createElement('h2');head.textContent=s.outbound.type==='T'?'TAGS TAKEN':'HEALED';st.append(head);let timer=document.createElement('p');timer.className='timer';let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);let box=document.createElement('div');box.className='qr offerqr';st.append(box);makeQR(box,returnCode(s.outbound.type,{id:s.id,name:s.name},{id:s.outbound.offer,deadline:s.outbound.deadline}));let p=document.createElement('p');p.className='compact';p.textContent='Show this to '+s.outbound.victimName+'. They scan it to confirm.';st.append(p);let b=document.createElement('button');b.className='alt';b.textContent='CLOSE';b.onclick=()=>{edit(x=>{x.outbound=null})};st.append(b);
-  }else if(offered()){let head=document.createElement('h2');head.textContent=`LIFE ${s.offer.n} OFFERED`;st.append(head);let timer=document.createElement('p');timer.id='timer';timer.className='timer';st.append(timer);let box=document.createElement('div');box.id='offerQR';box.className='qr offerqr';st.append(box);let p=document.createElement('p');p.className='compact';p.textContent='Show your dog tags. Bleedout timer is running.';st.append(p);let tagBtn=document.createElement('button');tagBtn.className='tagButton';let span=document.createElement('span');span.className='tagButtonText';span.textContent=s.name.toUpperCase()+"'S";const len=s.name.length;let fs;if(len<=13){fs=32;}else{fs=Math.max(16, 220/(len*0.72));}span.style.fontSize=fs+'px';tagBtn.appendChild(span);tagBtn.onclick=()=>scan('play','tag');st.append(tagBtn);let hint=document.createElement('p');hint.className='compact';hint.textContent='Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.';st.append(hint);secondsLeft();refreshOffer();
+  }else if(offered()){let head=document.createElement('h2');head.textContent=`LIFE ${s.offer.n} OFFERED`;st.append(head);let timer=document.createElement('p');timer.id='timer';timer.className='timer';st.append(timer);let box=document.createElement('div');box.id='offerQR';box.className='qr offerqr';st.append(box);let p=document.createElement('p');p.className='compact';p.textContent='Show your dog tags. Bleedout timer is running.';st.append(p);let tagBtn=document.createElement('button');tagBtn.className='tagButton';let span=document.createElement('span');span.className='tagButtonText';span.textContent=s.name.toUpperCase()+"'S";const displayLen=s.name.length+2;let fs;if(displayLen<=15){fs=32;}else{fs=Math.max(12,260/displayLen);}span.style.fontSize=fs+'px';tagBtn.appendChild(span);tagBtn.onclick=()=>scan('play','tag');st.append(tagBtn);let hint=document.createElement('p');hint.className='compact';hint.textContent='Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.';st.append(hint);secondsLeft();refreshOffer();
   }else if(ret||dead){let head=document.createElement('h2');head.textContent=ret?'RESPAWN AT BASE':'ELIMINATED';st.append(head);if(dead){let gif=document.createElement('img');gif.src='./eliminated.gif';gif.alt='Eliminated';gif.style.maxWidth='80%';gif.style.borderRadius='12px';gif.style.margin='10px 0';st.append(gif)}let p=document.createElement('p');p.textContent=ret?'Scan your assigned base. Spent finite lives stay red.':'Leave play safely. Help and history remain below.';st.append(p);
   }else{let p=document.createElement('p');p.className='teamBadge';p.textContent=`${s.name} : ${s.team==='A'?s.rules.a:s.rules.b}`;st.append(p);let panel=document.createElement('div');panel.className='readyPanel';let image=document.createElement('img');image.src='./war-adventures-logo.png';image.alt='War Adventures logo';image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';panel.append(word)};panel.append(image);st.append(panel)}
   let groups=new Map();for(let w of s.wins){let g=groups.get(w.owner)||{name:w.name,items:[]};g.items.push(w);groups.set(w.owner,g)}let wall=$('trophies');wall.replaceChildren();if(!groups.size)wall.textContent='None yet';for(let g of groups.values()){let b=document.createElement('button');b.className='tile';let img=document.createElement('img');img.src='./dogtag.svg';img.alt='';img.style.width='22px';img.style.height='22px';img.style.verticalAlign='middle';let strong=document.createElement('strong');strong.textContent=' '+g.items.length;let label=document.createElement('span');label.textContent=g.name.slice(0,4).toUpperCase();b.append(img,strong,label);b.onclick=()=>{let area=$('dialogText');area.replaceChildren();let hh=document.createElement('h2');hh.textContent=g.name;area.append(hh);for(let w of [...g.items].reverse()){let p=document.createElement('p');p.textContent=`${w.team}${w.n} · ${w.offer.slice(0,10)} · ${new Date(w.capturedAt).toLocaleString()}`;area.append(p)}$('dialog').showModal()};wall.append(b)}$('medals').textContent=s.medics.length?'💉 '+s.medics.length+' medic assists':'';$('history').replaceChildren();for(let e of [...s.events].reverse()){let li=document.createElement('li');li.textContent=e.at+': '+e.message;$('history').append(li)}$('pendingBox').classList.toggle('hidden',!s.medPending);$('pendingInfo').textContent=s.medPending?`Waiting for fresh second scan of ${s.medPending.name} before ${new Date(s.medPending.deadline).toLocaleString()}`:'';$('hostTools').classList.toggle('hidden',!h||h.gid!==s.gid)}
@@ -66,7 +66,6 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
   let tools={grid:$('mapGridBtn'),loc:$('mapLocBtn'),cal:$('mapCalBtn')};
   if(!overlay||!viewport||!inner||!img||!gridLayer)return;
   let scale=1,tx=0,ty=0,startScale=1,startTx=0,startTy=0,startDist=0,startMidX=0,startMidY=0,startX=0,startY=0,pinching=false,panning=false,lastLift=0,wasSingle=false,gridOn=false,calLock=false;
-
   function showBanner(msg,ms){banner.textContent=msg;banner.style.display='block';if(ms)setTimeout(()=>{if(banner.textContent===msg)banner.style.display='none'},ms)}
   function showStatus(msg){if(msg){status.textContent=msg;status.style.display='block'}else{status.style.display='none'}}
   function apply(){inner.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'}
@@ -76,226 +75,33 @@ $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopSc
   function midY(a,b){return (a.clientY+b.clientY)/2}
   function clamp(s){return Math.max(1,Math.min(5,s))}
   function clampPan(){const vw=viewport.clientWidth,vh=viewport.clientHeight,iw=inner.clientWidth*scale,ih=inner.clientHeight*scale,minTx=Math.min(0,vw-iw),minTy=Math.min(0,vh-ih);if(tx>0)tx=0;if(tx<minTx)tx=minTx;if(ty>0)ty=0;if(ty<minTy)ty=minTy}
-
   function loadAnchors(){try{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){const a=JSON.parse(raw);if(a.a&&a.b&&typeof a.a.xPct==='number'&&typeof a.b.xPct==='number')anchors=a}}catch(e){}}
   function saveAnchors(){try{localStorage.setItem(ANCHOR_KEY,JSON.stringify(anchors))}catch(e){}}
   function updateStatusDefault(){if(anchors&&anchors.a&&anchors.b)showStatus('Anchors set. Grid + GPS ready.');else showStatus('No anchors. Tap CAL to set.')}
-
-  // Correct meters/pixel calculation using native image dimensions
   function getImgDims(){const iw=img.naturalWidth||img.clientWidth||1,ih=img.naturalHeight||img.clientHeight||1;return {iw,ih}}
-
-  function computeMetersPerPx(){
-    if(!anchors||!anchors.a||!anchors.b)return null;
-    const a=anchors.a,b=anchors.b;
-    const {iw,ih}=getImgDims();
-    const latAvg=((a.lat+b.lat)/2)*Math.PI/180;
-    const mLat=111320,mLng=111320*Math.cos(latAvg);
-    const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;
-    const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;
-    const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);
-    if(lenG<1||lenP<1e-6)return null;
-    return lenG/lenP; // meters per native image pixel
-  }
-
-  function computeGridSpacingNativePx(){
-    const mPerPx=computeMetersPerPx();
-    if(!mPerPx)return null;
-    return 10/mPerPx; // native-image px per 10m of real world
-  }
-
-  function applyGrid(){
-    if(!anchors||!anchors.a||!anchors.b){gridLayer.classList.remove('on');return}
-    const spacingNative=computeGridSpacingNativePx();
-    if(!spacingNative){gridLayer.classList.remove('on');return}
-    const {iw,ih}=getImgDims();
-    // Convert native-image-px spacing to CSS px on the current (untransformed) layout
-    const layoutW=img.clientWidth||iw;
-    const layoutH=img.clientHeight||ih;
-    const spacingX=(spacingNative/iw)*layoutW;
-    const spacingY=(spacingNative/ih)*layoutH;
-    // 10x10 SVG tile: 3 dashes each 2 units, 2 gaps each 2 units
-    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'+
-      '<line x1="0" y1="0" x2="2" y2="0" stroke="black" stroke-width="0.15"/>'+
-      '<line x1="4" y1="0" x2="6" y2="0" stroke="black" stroke-width="0.15"/>'+
-      '<line x1="8" y1="0" x2="10" y2="0" stroke="black" stroke-width="0.15"/>'+
-      '<line x1="0" y1="0" x2="0" y2="2" stroke="black" stroke-width="0.15"/>'+
-      '<line x1="0" y1="4" x2="0" y2="6" stroke="black" stroke-width="0.15"/>'+
-      '<line x1="0" y1="8" x2="0" y2="10" stroke="black" stroke-width="0.15"/>'+
-      '</svg>';
-    const b64=btoa(svg);
-    gridLayer.style.backgroundImage='url("data:image/svg+xml;base64,'+b64+'")';
-    gridLayer.style.backgroundSize=spacingX+'px '+spacingY+'px';
-    gridLayer.classList.toggle('on',gridOn);
-  }
-
-  function gpsToPct(lat,lng){
-    if(!anchors||!anchors.a||!anchors.b)return null;
-    const a=anchors.a,b=anchors.b;
-    const {iw,ih}=getImgDims();
-    const latAvg=((a.lat+b.lat)/2)*Math.PI/180;
-    const mLat=111320,mLng=111320*Math.cos(latAvg);
-    const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;
-    const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;
-    const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);
-    if(lenG<1||lenP<1e-6)return null;
-    const mPerPx=lenG/lenP;
-    // User offset from anchor A in meters
-    const dxUser=(lng-a.lng)*mLng; // east meters
-    const dyUser=(lat-a.lat)*mLat; // north meters
-    // If the map is north-up: east = +x, north = -y (image y-down)
-    const pxUser=dxUser/mPerPx;
-    const pyUser=-dyUser/mPerPx;
-    const xPct=a.xPct+pxUser/iw;
-    const yPct=a.yPct+pyUser/ih;
-    return {xPct,yPct};
-  }
-
-  function updateBlueDot(lat,lng,accuracy){
-    if(!anchors||!anchors.a||!anchors.b){dot.style.display='none';youLabel.style.display='none';return}
-    const pct=gpsToPct(lat,lng);
-    if(!pct){dot.style.display='none';youLabel.style.display='none';return}
-    dot.style.left=(pct.xPct*100)+'%';
-    dot.style.top=(pct.yPct*100)+'%';
-    dot.style.display='block';
-    youLabel.style.left=(pct.xPct*100)+'%';
-    youLabel.style.top=(pct.yPct*100)+'%';
-    youLabel.textContent='You ±'+Math.round(accuracy||0)+'m';
-    youLabel.style.display='block';
-    if(pct.xPct<0||pct.xPct>1||pct.yPct<0||pct.yPct>1){
-      showBanner('You appear to be off the map ('+(pct.xPct*100).toFixed(0)+'%, '+(pct.yPct*100).toFixed(0)+'%)',5000);
-    }
-  }
-
-  function startWatch(){
-    if(mapWatchId!==null)return;
-    if(!navigator.geolocation){showBanner('GPS not supported on this device',4000);return}
-    try{
-      mapWatchId=navigator.geolocation.watchPosition(
-        p=>updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy),
-        e=>{dot.style.display='none';youLabel.style.display='none';showBanner('GPS error: '+e.message+' (code '+e.code+')',5000)},
-        {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
-      )
-    }catch(e){showBanner('GPS exception: '+e.message,5000)}
-  }
+  function computeMetersPerPx(){if(!anchors||!anchors.a||!anchors.b)return null;const a=anchors.a,b=anchors.b;const {iw,ih}=getImgDims();const latAvg=((a.lat+b.lat)/2)*Math.PI/180;const mLat=111320,mLng=111320*Math.cos(latAvg);const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);if(lenG<1||lenP<1e-6)return null;return lenG/lenP}
+  function computeGridSpacingNativePx(){const mPerPx=computeMetersPerPx();if(!mPerPx)return null;return 10/mPerPx}
+  function applyGrid(){if(!anchors||!anchors.a||!anchors.b){gridLayer.classList.remove('on');return}const spacingNative=computeGridSpacingNativePx();if(!spacingNative){gridLayer.classList.remove('on');return}const {iw,ih}=getImgDims();const layoutW=img.clientWidth||iw;const layoutH=img.clientHeight||ih;const spacingX=(spacingNative/iw)*layoutW;const spacingY=(spacingNative/ih)*layoutH;const svg='<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><line x1="0" y1="0" x2="2" y2="0" stroke="black" stroke-width="0.15"/><line x1="4" y1="0" x2="6" y2="0" stroke="black" stroke-width="0.15"/><line x1="8" y1="0" x2="10" y2="0" stroke="black" stroke-width="0.15"/><line x1="0" y1="0" x2="0" y2="2" stroke="black" stroke-width="0.15"/><line x1="0" y1="4" x2="0" y2="6" stroke="black" stroke-width="0.15"/><line x1="0" y1="8" x2="0" y2="10" stroke="black" stroke-width="0.15"/></svg>';const b64=btoa(svg);gridLayer.style.backgroundImage='url("data:image/svg+xml;base64,'+b64+'")';gridLayer.style.backgroundSize=spacingX+'px '+spacingY+'px';gridLayer.classList.toggle('on',gridOn)}
+  function gpsToPct(lat,lng){if(!anchors||!anchors.a||!anchors.b)return null;const a=anchors.a,b=anchors.b;const {iw,ih}=getImgDims();const latAvg=((a.lat+b.lat)/2)*Math.PI/180;const mLat=111320,mLng=111320*Math.cos(latAvg);const vgx=(b.lng-a.lng)*mLng, vgy=(b.lat-a.lat)*mLat;const vpx=(b.xPct-a.xPct)*iw, vpy=(b.yPct-a.yPct)*ih;const lenG=Math.hypot(vgx,vgy),lenP=Math.hypot(vpx,vpy);if(lenG<1||lenP<1e-6)return null;const mPerPx=lenG/lenP;const dxUser=(lng-a.lng)*mLng;const dyUser=(lat-a.lat)*mLat;const pxUser=dxUser/mPerPx;const pyUser=-dyUser/mPerPx;const xPct=a.xPct+pxUser/iw;const yPct=a.yPct+pyUser/ih;return {xPct,yPct}}
+  function updateBlueDot(lat,lng,accuracy){if(!anchors||!anchors.a||!anchors.b){dot.style.display='none';youLabel.style.display='none';return}const pct=gpsToPct(lat,lng);if(!pct){dot.style.display='none';youLabel.style.display='none';return}dot.style.left=(pct.xPct*100)+'%';dot.style.top=(pct.yPct*100)+'%';dot.style.display='block';youLabel.style.left=(pct.xPct*100)+'%';youLabel.style.top=(pct.yPct*100)+'%';youLabel.textContent='You ±'+Math.round(accuracy||0)+'m';youLabel.style.display='block';if(pct.xPct<0||pct.xPct>1||pct.yPct<0||pct.yPct>1){showBanner('You appear to be off the map ('+(pct.xPct*100).toFixed(0)+'%, '+(pct.yPct*100).toFixed(0)+'%)',5000)}}
+  function startWatch(){if(mapWatchId!==null)return;if(!navigator.geolocation){showBanner('GPS not supported on this device',4000);return}try{mapWatchId=navigator.geolocation.watchPosition(p=>updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy),e=>{dot.style.display='none';youLabel.style.display='none';showBanner('GPS error: '+e.message+' (code '+e.code+')',5000)},{enableHighAccuracy:true,maximumAge:5000,timeout:20000})}catch(e){showBanner('GPS exception: '+e.message,5000)}}
   function stopWatch(){if(mapWatchId!==null){try{navigator.geolocation.clearWatch(mapWatchId)}catch(e){}mapWatchId=null}}
-
-  function enterCalibrate(){
-    calibrating={step:1};
-    calLock=false;
-    showBanner('Step 1 of 2: Tap the map where Bird Rd Cnr is (western field corner).');
-    tools.cal.classList.add('active');
-  }
+  function enterCalibrate(){calibrating={step:1};calLock=false;showBanner('Step 1 of 2: Tap the map where Bird Rd Cnr is (western field corner).');tools.cal.classList.add('active')}
   function exitCalibrate(){calibrating=null;calLock=false;banner.style.display='none';tools.cal.classList.remove('active')}
-
-  function handleCalibrateTap(clientX,clientY){
-    if(calLock)return;
-    const rect=img.getBoundingClientRect();
-    const xRatio=(clientX-rect.left)/rect.width;
-    const yRatio=(clientY-rect.top)/rect.height;
-    if(xRatio<0||xRatio>1||yRatio<0||yRatio>1){showBanner('Tap inside the image',2500);return}
-    const {iw,ih}=getImgDims();
-    if(calibrating.step===1){
-      calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct:xRatio,yPct:yRatio,name:'Bird Rd Cnr'};
-      calibrating.step=2;
-      calLock=true;
-      showBanner('Locked. Now tap Bonfire — 1 second...',1000);
-      setTimeout(()=>{
-        calLock=false;
-        showBanner('Step 2 of 2: Tap the map where Bonfire is (north-east of field).');
-      },1000);
-    }else if(calibrating.step===2){
-      // Validate the two taps are far enough apart
-      const dxPx=(xRatio-calibrating.a.xPct)*iw;
-      const dyPx=(yRatio-calibrating.a.yPct)*ih;
-      const tapDistPx=Math.hypot(dxPx,dyPx);
-      const imgDiagPx=Math.hypot(iw,ih);
-      if(tapDistPx<imgDiagPx*0.15){
-        showBanner('Taps too close ('+Math.round(tapDistPx)+'px). Pick two points far apart.',3500);
-        return;
-      }
-      calibrating.b={lat:ANCHOR_LOCS['Bonfire'].lat,lng:ANCHOR_LOCS['Bonfire'].lng,xPct:xRatio,yPct:yRatio,name:'Bonfire'};
-      anchors={a:calibrating.a,b:calibrating.b};
-      saveAnchors();
-      exitCalibrate();
-      updateStatusDefault();
-      applyGrid();
-      startWatch();
-      showBanner('Anchors set.',2500);
-    }
-  }
-
-  viewport.addEventListener('touchstart',function(e){
-    if(calibrating){if(e.touches.length===1)handleCalibrateTap(e.touches[0].clientX,e.touches[0].clientY);return}
-    if(e.touches.length===2){pinching=true;panning=false;wasSingle=false;startDist=dist(e.touches[0],e.touches[1]);startMidX=midX(e.touches[0],e.touches[1]);startMidY=midY(e.touches[0],e.touches[1]);startScale=scale;startTx=tx;startTy=ty}
-    else if(e.touches.length===1){const now=Date.now();if(wasSingle&&now-lastLift<300){overlay.classList.add('hidden');reset();stopWatch();wasSingle=false;return}wasSingle=true;panning=true;pinching=false;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}
-  },{passive:true});
-  viewport.addEventListener('touchmove',function(e){
-    if(calibrating)return;
-    if(pinching&&e.touches.length===2){e.preventDefault();const d=dist(e.touches[0],e.touches[1]),newScale=clamp(startScale*(d/startDist)),mx=midX(e.touches[0],e.touches[1]),my=midY(e.touches[0],e.touches[1]),ix=(startMidX-startTx)/startScale,iy=(startMidY-startTy)/startScale;scale=newScale;tx=mx-ix*scale;ty=my-iy*scale;clampPan();apply()}
-    else if(panning&&e.touches.length===1){e.preventDefault();tx=startTx+(e.touches[0].clientX-startX);ty=startTy+(e.touches[0].clientY-startY);clampPan();apply()}
-  },{passive:false});
-  viewport.addEventListener('touchend',function(e){
-    if(calibrating)return;
-    if(e.touches.length===0){if(wasSingle)lastLift=Date.now();pinching=false;panning=false}
-    else if(e.touches.length===1){pinching=false;panning=true;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}
-  },{passive:true});
-
+  function handleCalibrateTap(clientX,clientY){if(calLock)return;const rect=img.getBoundingClientRect();const xRatio=(clientX-rect.left)/rect.width;const yRatio=(clientY-rect.top)/rect.height;if(xRatio<0||xRatio>1||yRatio<0||yRatio>1){showBanner('Tap inside the image',2500);return}const {iw,ih}=getImgDims();if(calibrating.step===1){calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct:xRatio,yPct:yRatio,name:'Bird Rd Cnr'};calibrating.step=2;calLock=true;showBanner('Locked. Now tap Bonfire — 1 second...',1000);setTimeout(()=>{calLock=false;showBanner('Step 2 of 2: Tap the map where Bonfire is (north-east of field).')},1000)}else if(calibrating.step===2){const dxPx=(xRatio-calibrating.a.xPct)*iw;const dyPx=(yRatio-calibrating.a.yPct)*ih;const tapDistPx=Math.hypot(dxPx,dyPx);const imgDiagPx=Math.hypot(iw,ih);if(tapDistPx<imgDiagPx*0.15){showBanner('Taps too close ('+Math.round(tapDistPx)+'px). Pick two points far apart.',3500);return}calibrating.b={lat:ANCHOR_LOCS['Bonfire'].lat,lng:ANCHOR_LOCS['Bonfire'].lng,xPct:xRatio,yPct:yRatio,name:'Bonfire'};anchors={a:calibrating.a,b:calibrating.b};saveAnchors();exitCalibrate();updateStatusDefault();applyGrid();startWatch();showBanner('Anchors set.',2500)}}
+  viewport.addEventListener('touchstart',function(e){if(calibrating){if(e.touches.length===1)handleCalibrateTap(e.touches[0].clientX,e.touches[0].clientY);return}if(e.touches.length===2){pinching=true;panning=false;wasSingle=false;startDist=dist(e.touches[0],e.touches[1]);startMidX=midX(e.touches[0],e.touches[1]);startMidY=midY(e.touches[0],e.touches[1]);startScale=scale;startTx=tx;startTy=ty}else if(e.touches.length===1){const now=Date.now();if(wasSingle&&now-lastLift<300){overlay.classList.add('hidden');reset();stopWatch();wasSingle=false;return}wasSingle=true;panning=true;pinching=false;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}},{passive:true});
+  viewport.addEventListener('touchmove',function(e){if(calibrating)return;if(pinching&&e.touches.length===2){e.preventDefault();const d=dist(e.touches[0],e.touches[1]),newScale=clamp(startScale*(d/startDist)),mx=midX(e.touches[0],e.touches[1]),my=midY(e.touches[0],e.touches[1]),ix=(startMidX-startTx)/startScale,iy=(startMidY-startTy)/startScale;scale=newScale;tx=mx-ix*scale;ty=my-iy*scale;clampPan();apply()}else if(panning&&e.touches.length===1){e.preventDefault();tx=startTx+(e.touches[0].clientX-startX);ty=startTy+(e.touches[0].clientY-startY);clampPan();apply()}},{passive:false});
+  viewport.addEventListener('touchend',function(e){if(calibrating)return;if(e.touches.length===0){if(wasSingle)lastLift=Date.now();pinching=false;panning=false}else if(e.touches.length===1){pinching=false;panning=true;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}},{passive:true});
   viewport.addEventListener('click',function(e){if(calibrating)handleCalibrateTap(e.clientX,e.clientY)});
-
   $('mapButton').onclick=()=>{reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();if(anchors&&anchors.a)startWatch();};
   $('mapClose').onclick=()=>{overlay.classList.add('hidden');reset();stopWatch()};
-
-  tools.grid.onclick=()=>{
-    gridOn=!gridOn;
-    tools.grid.classList.toggle('active',gridOn);
-    if(!anchors||!anchors.a){showBanner('Set anchors first (tap CAL)',2500);gridOn=false;tools.grid.classList.remove('active');return}
-    applyGrid();
-  };
-
-  tools.loc.onclick=()=>{
-    if(!anchors||!anchors.a||!anchors.b){showBanner('Set anchors first (tap CAL)',2500);return}
-    if(!navigator.geolocation){showBanner('GPS not supported',3000);return}
-    showBanner('Getting GPS...');
-    navigator.geolocation.getCurrentPosition(
-      p=>{
-        banner.style.display='none';
-        showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');
-        updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);
-        startWatch();
-      },
-      e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),
-      {enableHighAccuracy:true,timeout:20000,maximumAge:0}
-    );
-  };
-
-  tools.cal.onclick=()=>{
-    if(calibrating){exitCalibrate();return}
-    if(anchors&&anchors.a){
-      if(!confirm('Re-calibrate anchors?'))return;
-      anchors=null;
-      try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}
-      dot.style.display='none';
-      youLabel.style.display='none';
-      gridLayer.classList.remove('on');
-      gridOn=false;
-      tools.grid.classList.remove('active');
-    }
-    enterCalibrate();
-  };
-
+  tools.grid.onclick=()=>{gridOn=!gridOn;tools.grid.classList.toggle('active',gridOn);if(!anchors||!anchors.a){showBanner('Set anchors first (tap CAL)',2500);gridOn=false;tools.grid.classList.remove('active');return}applyGrid()};
+  tools.loc.onclick=()=>{if(!anchors||!anchors.a||!anchors.b){showBanner('Set anchors first (tap CAL)',2500);return}if(!navigator.geolocation){showBanner('GPS not supported',3000);return}showBanner('Getting GPS...');navigator.geolocation.getCurrentPosition(p=>{banner.style.display='none';showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);startWatch()},e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),{enableHighAccuracy:true,timeout:20000,maximumAge:0})};
+  tools.cal.onclick=()=>{if(calibrating){exitCalibrate();return}if(anchors&&anchors.a){if(!confirm('Re-calibrate anchors?'))return;anchors=null;try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}dot.style.display='none';youLabel.style.display='none';gridLayer.classList.remove('on');gridOn=false;tools.grid.classList.remove('active')}enterCalibrate()};
   loadAnchors();
 })();
 /* --- INIT --- */
-(function(){
-  const ba=$('baseA'),bb=$('baseB');if(!ba||!bb)return;
-  const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');
-  const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');
-  const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');
-  function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}
-  opt(ba,main);opt(ba,sec);opt(ba,safe);
-  opt(bb,main);opt(bb,sec);opt(bb,safe);
-  ba.value='Church';bb.value='Diego Garcia';
-})();
+(function(){const ba=$('baseA'),bb=$('baseB');if(!ba||!bb)return;const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia'})();
 for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;$('lives').append(x)}
 try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!ruleOK(x.rules))throw Error('host');h=x;view='hostPanel'}}catch(e){note('Saved host game unreadable. Do not clear browser storage.')}
 try{let raw=localStorage.getItem(KEY);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!idOK(x.id)||!ruleOK(x.rules)||!Array.isArray(x.tags)||x.tags.length!==(x.rules.lives==='U'?1:Number(x.rules.lives))||!['ACTIVE','OFFERED','RETURN','ELIMINATED'].includes(x.phase)||!Array.isArray(x.events)||!Array.isArray(x.wins)||!Array.isArray(x.medics)||!Array.isArray(x.seen))throw Error('player');s=x}}catch(e){note('Saved player data unreadable. Do not clear browser storage.')}
