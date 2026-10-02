@@ -10,21 +10,22 @@
 .mash-footer p{margin:2px 0}
 /* --- DOG TAG BUTTON --- */
 .tagButton{display:block;width:100%;aspect-ratio:850/510;background:url('./dogtag-button.png') center/contain no-repeat;border:0;padding:0;margin:8px 0;cursor:pointer;position:relative;min-height:auto}
-.tagButtonText{position:absolute;right:7%;top:36%;transform:translateY(-50%);color:#1a1a1a;font-family:"Arial Black",Arial,sans-serif;font-size:clamp(22px,7.5vw,38px);font-weight:900;text-transform:uppercase;letter-spacing:2px;text-shadow:0px 1px 1px rgba(255,255,255,0.25),0px -1px 1px rgba(0,0,0,0.5);pointer-events:none;white-space:nowrap;max-width:70%;overflow:hidden;text-align:right}
-/* --- MAP OVERLAY (PINCH / PAN) --- */
+.tagButtonText{position:absolute;right:7%;top:36%;transform:translateY(-50%);color:#1a1a1a;font-family:"Arial Black",Arial,sans-serif;font-size:clamp(18px,5.5vw,32px);font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:0px 1px 1px rgba(255,255,255,0.25),0px -1px 1px rgba(0,0,0,0.5);pointer-events:none;white-space:nowrap;max-width:55%;overflow:hidden;text-align:right}
+/* --- MAP OVERLAY (PINCH / PAN / GRID / GPS) --- */
 #mapOverlay{position:fixed;inset:0;background:#000;z-index:9999;overflow:hidden;touch-action:none}
 #mapViewport{position:absolute;inset:0;overflow:hidden;touch-action:none}
 #mapInner{position:absolute;top:0;left:0;width:100%;height:auto;transform-origin:0 0;will-change:transform}
 #mapImage{display:block;width:100%;height:auto;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
-#mapClose{position:fixed;top:16px;right:16px;z-index:10000;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.8);color:#fff;font-size:22px;font-weight:900;border:2px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+#mapGridLayer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4;opacity:0.7;background-repeat:repeat;display:none}
+#mapGridLayer.on{display:block}
+#mapBlueDot{position:absolute;width:22px;height:22px;border-radius:50%;background:#0080ff;border:3px solid #fff;box-shadow:0 0 14px rgba(0,128,255,1);transform:translate(-50%,-50%);pointer-events:none;z-index:6;display:none}
+#mapYouLabel{position:absolute;color:#fff;background:#0080ff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800;transform:translate(-50%,30px);pointer-events:none;z-index:6;display:none;white-space:nowrap}
+#mapClose{position:fixed;top:16px;right:16px;z-index:10000;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.85);color:#fff;font-size:22px;font-weight:900;border:2px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 #mapTools{position:fixed;top:16px;left:16px;z-index:10000;display:flex;flex-direction:column;gap:8px}
-.mapTool{min-width:56px;padding:8px 12px;font-size:13px;font-weight:800;background:rgba(0,0,0,0.8);color:#fff;border:2px solid #fff;border-radius:8px;cursor:pointer}
+.mapTool{min-width:56px;padding:8px 12px;font-size:13px;font-weight:800;background:rgba(0,0,0,0.85);color:#fff;border:2px solid #fff;border-radius:8px;cursor:pointer}
 .mapTool.active{background:#b8e96b;color:#111;border-color:#b8e96b}
-#mapGrid{position:absolute;inset:0;pointer-events:none;z-index:5;display:none;background-image:linear-gradient(to right,rgba(255,255,255,0.35) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.35) 1px,transparent 1px);background-size:10% 10%}
-#mapGrid.on{display:block}
-#mapBlueDot{position:absolute;width:20px;height:20px;border-radius:50%;background:#0080ff;border:3px solid #fff;box-shadow:0 0 12px rgba(0,128,255,0.9);transform:translate(-50%,-50%);pointer-events:none;z-index:6;display:none}
-#mapBanner{position:fixed;top:80px;left:16px;right:16px;z-index:10000;background:#ffd653;color:#111;font-weight:800;font-size:16px;padding:10px;border-radius:8px;text-align:center;display:none}
-#mapStatus{position:fixed;bottom:16px;left:16px;right:16px;z-index:10000;background:rgba(0,0,0,0.7);color:#c5d3cb;font-size:12px;padding:8px;border-radius:8px;text-align:center;display:none}
+#mapBanner{position:fixed;top:80px;left:16px;right:16px;z-index:10000;background:#ffd653;color:#111;font-weight:800;font-size:15px;padding:10px;border-radius:8px;text-align:center;display:none}
+#mapStatus{position:fixed;bottom:16px;left:16px;right:16px;z-index:10000;background:rgba(0,0,0,0.85);color:#c5d3cb;font-size:12px;padding:8px;border-radius:8px;text-align:center;display:none;white-space:pre-line}
 </style></head><body><main>
 <header class="mash-header">
   <h1 class="mash-title">M<span class="sep">▪︎</span>A<span class="sep">▪︎</span>S<span class="sep">▪︎</span>H <span class="unit">unit</span></h1>
@@ -51,9 +52,10 @@
   <div id="mapViewport">
     <div id="mapInner">
       <img id="mapImage" src="./map1.jpeg" alt="Field map">
+      <div id="mapGridLayer"></div>
       <div id="mapBlueDot"></div>
+      <div id="mapYouLabel">You</div>
     </div>
-    <div id="mapGrid"></div>
   </div>
   <div id="mapStatus"></div>
 </div>
