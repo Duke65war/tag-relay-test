@@ -10,13 +10,13 @@
 .mash-footer p{margin:2px 0}
 /* --- DOG TAG BUTTON --- */
 .tagButton{display:block;width:100%;aspect-ratio:850/510;background:url('./dogtag-button.png') center/contain no-repeat;border:0;padding:0;margin:8px 0;cursor:pointer;position:relative;min-height:auto}
-.tagButtonText{position:absolute;right:7%;top:36%;transform:translateY(-50%);color:#1a1a1a;font-family:"Arial Black",Arial,sans-serif;font-size:clamp(18px,5.5vw,32px);font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:0px 1px 1px rgba(255,255,255,0.25),0px -1px 1px rgba(0,0,0,0.5);pointer-events:none;white-space:nowrap;max-width:55%;overflow:hidden;text-align:right}
+.tagButtonText{position:absolute;right:7%;top:36%;transform:translateY(-50%);color:#1a1a1a;font-family:"Arial Black",Arial,sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:0px 1px 1px rgba(255,255,255,0.25),0px -1px 1px rgba(0,0,0,0.5);pointer-events:none;white-space:nowrap;max-width:55%;overflow:hidden;text-align:right}
 /* --- MAP OVERLAY (PINCH / PAN / GRID / GPS) --- */
 #mapOverlay{position:fixed;inset:0;background:#000;z-index:9999;overflow:hidden;touch-action:none}
 #mapViewport{position:absolute;inset:0;overflow:hidden;touch-action:none}
 #mapInner{position:absolute;top:0;left:0;width:100%;height:auto;transform-origin:0 0;will-change:transform}
 #mapImage{display:block;width:100%;height:auto;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
-#mapGridLayer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4;opacity:0.7;background-repeat:repeat;display:none}
+#mapGridLayer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4;opacity:0.85;background-repeat:repeat;display:none}
 #mapGridLayer.on{display:block}
 #mapBlueDot{position:absolute;width:22px;height:22px;border-radius:50%;background:#0080ff;border:3px solid #fff;box-shadow:0 0 14px rgba(0,128,255,1);transform:translate(-50%,-50%);pointer-events:none;z-index:6;display:none}
 #mapYouLabel{position:absolute;color:#fff;background:#0080ff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800;transform:translate(-50%,30px);pointer-events:none;z-index:6;display:none;white-space:nowrap}
