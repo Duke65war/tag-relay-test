@@ -1,5 +1,7 @@
-const CACHE='mash-unit-v4-20261003g';
-const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif','./qrcode.min.js','./html5-qrcode.min.js','./dogtag.svg','./map1.jpeg','./dogtag-button.png','./qrscanbu.jpg'];
+const CACHE='mash-unit-v4-20261004c';
+const CORE=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./eliminated.gif','./qrcode.min.js','./html5-qrcode.min.js','./dogtag.svg','./map1.jpeg','./dogtag-button.png','./qrscanbu.jpg',
+ './armoury/ak47b-1.png','./armoury/Ames85.png','./armoury/de-1.png','./armoury/G36c1.png',
+ './armoury/Knife-1.png','./armoury/M60vn-1.png','./armoury/mac10-1.png','./armoury/Shot1.png'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);await cache.addAll(CORE);
  try{const logo=await fetch('./war-adventures-logo.png');if(logo.ok)await cache.put('./war-adventures-logo.png',logo)}catch(e){}
