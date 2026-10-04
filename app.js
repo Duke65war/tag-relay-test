@@ -44,40 +44,13 @@ function edit(fn){if(!s)return false;let x=JSON.parse(JSON.stringify(s));fn(x);r
 function saveHost(x){try{localStorage.setItem(HOST,JSON.stringify(x));h=x;return true}catch(e){note('Host setup could not be saved. Do not share game QRs.');return false}}
 function makeQR(node,text,size=216){node.replaceChildren();if(typeof QRCode!=='function'){node.textContent='QR library not loaded.';return}try{new QRCode(node,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){node.textContent='QR drawing failed'}}
 /* --- CAREER --- */
-function loadCareer(){
- try{const raw=localStorage.getItem(CAREER_KEY);if(raw){const c=JSON.parse(raw);if(c&&typeof c.lastPlayed==='number'&&Array.isArray(c.artefacts)){career=c;return}}}catch(e){}
- career={lastPlayed:Date.now(),artefacts:[]};
-}
+function loadCareer(){try{const raw=localStorage.getItem(CAREER_KEY);if(raw){const c=JSON.parse(raw);if(c&&typeof c.lastPlayed==='number'&&Array.isArray(c.artefacts)){career=c;return}}}catch(e){}career={lastPlayed:Date.now(),artefacts:[]}}
 function saveCareer(){try{localStorage.setItem(CAREER_KEY,JSON.stringify(career))}catch(e){}}
-function careerState(){
- const elapsed=time()-career.lastPlayed;
- if(elapsed>=EIGHT_WEEKS)return 'deleted';
- if(elapsed>=FIVE_WEEKS)return 'dormant';
- return 'active';
-}
-function careerPurgeIfExpired(){
- if(careerState()==='deleted'){
-  career.artefacts=[];
-  career.lastPlayed=time();
-  saveCareer();
- }
-}
-function careerActiveArtefacts(){
- if(careerState()!=='active')return [];
- return career.artefacts.slice();
-}
-function careerVariantsFor(gunId){
- return career.artefacts.filter(a=>a.gunId===gunId).sort((a,b)=>b.claimedAt-a.claimedAt);
-}
-function careerHas(artifactId){
- return career.artefacts.some(a=>a.artifactId===artifactId);
-}
-function careerAdd(gunId,gameName,artifactId){
- if(careerHas(artifactId))return false;
- career.artefacts.push({artifactId,gunId,gameName,claimedAt:time()});
- saveCareer();
- return true;
-}
+function careerState(){const elapsed=time()-career.lastPlayed;if(elapsed>=EIGHT_WEEKS)return 'deleted';if(elapsed>=FIVE_WEEKS)return 'dormant';return 'active'}
+function careerPurgeIfExpired(){if(careerState()==='deleted'){career.artefacts=[];career.lastPlayed=time();saveCareer()}}
+function careerVariantsFor(gunId){return career.artefacts.filter(a=>a.gunId===gunId).sort((a,b)=>b.claimedAt-a.claimedAt)}
+function careerHas(artifactId){return career.artefacts.some(a=>a.artifactId===artifactId)}
+function careerAdd(gunId,gameName,artifactId){if(careerHas(artifactId))return false;career.artefacts.push({artifactId,gunId,gameName,claimedAt:time()});saveCareer();return true}
 /* --- QR CODES --- */
 const code=(type,...values)=>JSON.stringify([V,type,...values]);
 const joinCode=t=>code('J',h.gid,h.game,h.rules.lives,h.rules.seconds,h.rules.medic,h.rules.a,h.rules.b,t);
@@ -98,9 +71,7 @@ function join(){
   pending=null;
   careerPurgeIfExpired();
   const cs=careerState();
-  if(cs==='active'||(cs==='dormant'&&h&&h.unlockCareers)){
-   career.lastPlayed=time();saveCareer();
-  }
+  if(cs==='active'||(cs==='dormant'&&h&&h.unlockCareers)){career.lastPlayed=time();saveCareer()}
   note('Team fixed by host. Call HIT and mark out before touching the phone.');
  }
 }
@@ -148,12 +119,7 @@ function acceptArtifact(a){
  const artifactId=a[5];if(typeof artifactId!=='string'||!/^[0-9a-f]{12,24}$/.test(artifactId))throw Error('Invalid artifact');
  const gameName=a[3];if(typeof gameName!=='string'||gameName.length<1||gameName.length>12)throw Error('Invalid game name');
  if(careerHas(artifactId))throw Error('Already collected');
- if(careerAdd(gunId,gameName,artifactId)){
-  const g=GUNS[gunId];
-  buzz('return');
-  note(`Collected ${g.name} | ${gameName}`);
-  return;
- }
+ if(careerAdd(gunId,gameName,artifactId)){const g=GUNS[gunId];buzz('return');note(`Collected ${g.name} | ${gameName}`);return}
  throw Error('Could not add artifact');
 }
 function accept(raw){reconcile();if(!s)throw Error('Join a team first');let a=parse(raw);
@@ -178,11 +144,7 @@ function accept(raw){reconcile();if(!s)throw Error('Join a team first');let a=pa
   return;
  }
  let m=s.medPending;
- if(!m||time()>=m.deadline){
-  edit(x=>{x.medPending={...o,started:time()};record(x,`Medic started for ${o.name}`)});
-  note('First scan. Stay together and scan fresh QR after at least 30 seconds.');
-  return;
- }
+ if(!m||time()>=m.deadline){edit(x=>{x.medPending={...o,started:time()};record(x,`Medic started for ${o.name}`)});note('First scan. Stay together and scan fresh QR after at least 30 seconds.');return}
  if(m.owner!==o.owner||m.offer!==o.offer)throw Error('Cancel existing medic attempt first');
  if(m.challenge===o.challenge)throw Error('Need fresh rotating QR from same offer');
  if(time()-m.started<30000)throw Error(`Wait ${Math.ceil((30000-(time()-m.started))/1000)} more seconds`);
@@ -207,7 +169,9 @@ function renderArtifactCheckboxes(){
  });
 }
 function renderSetup(){$('setup').classList.toggle('hidden',!!s);$('play').classList.toggle('hidden',!s);if(s)return;let v=h&&view==='choice'?'hostPanel':view;for(let id of ['choice','hostForm','hostPanel','joinPanel','preview'])$(id).classList.toggle('hidden',id!==v);if(v==='hostPanel'&&h){$('hostInfo').textContent=`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;if(!$('hostQR').childNodes.length)hostDraw('J','A','hostQR');renderArtifactCheckboxes();const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers}if(v==='preview'&&pending){$('previewTeam').textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;$('previewRules').textContent=ruleText(pending.rules)}}
-function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';document.body.classList.toggle('returning',ret);document.body.classList.toggle('mist',dead);$('playarea').classList.toggle('teamB',s.team==='B');$('identity').textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;let bar=$('bar');bar.replaceChildren();s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;if(tag.status==='OFFERED'&&offered()&&s.rules.medic!=='none'){el.classList.add('tappable');el.onclick=()=>scan('play','heal')}bar.append(el)});bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));$('actions').className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');$('hit').disabled=phase!=='ACTIVE';$('scan').disabled=phase!=='ACTIVE'&&!ret;let st=$('stage');st.replaceChildren();offerSlot=-1;offerShown='';
+function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';document.body.classList.toggle('returning',ret);document.body.classList.toggle('mist',dead);$('playarea').classList.toggle('teamB',s.team==='B');$('identity').textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;let bar=$('bar');bar.replaceChildren();s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;if(tag.status==='OFFERED'&&offered()&&s.rules.medic!=='none'){el.classList.add('tappable');el.onclick=()=>scan('play','heal')}bar.append(el)});bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));$('actions').className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');$('hit').disabled=phase!=='ACTIVE';$('scan').disabled=phase!=='ACTIVE'&&!ret;
+ const scanImg=$('scanImg');if(scanImg)scanImg.src=ret?'./baserespawn.jpg':'./qrscanbu.jpg';
+ let st=$('stage');st.replaceChildren();offerSlot=-1;offerShown='';
  if(s.outbound&&s.outbound.type==='K'){
   let head=document.createElement('h2');head.textContent='THANKS';st.append(head);
   let timer=document.createElement('p');timer.className='timer';let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);
@@ -262,36 +226,30 @@ function render(){renderSetup();renderPlay()}
 /* --- ARMOURY --- */
 function renderArmoury(){
  const status=$('armouryStatus'),grid=$('armouryGrid');if(!status||!grid)return;
- status.textContent='';
- grid.replaceChildren();
+ status.textContent='';grid.replaceChildren();
  const state=careerState();
- const activeList=state==='active'?career.artefacts:[];
  const totalDistinct=new Set(career.artefacts.map(a=>a.gunId)).size;
- if(state==='dormant'){
-  status.textContent='Collection dormant. '+career.artefacts.length+' artifacts hidden. Ask the host to unlock careers.';
- }else if(state==='active'){
-  if(career.artefacts.length===0)status.textContent='No artifacts yet. Find them on the field.';
-  else status.textContent=career.artefacts.length+' collected · '+totalDistinct+' of 8 variants';
- }
+ if(state==='dormant'){status.textContent='Collection dormant. '+career.artefacts.length+' artifacts hidden. Ask the host to unlock careers.'}
+ else if(state==='active'){if(career.artefacts.length===0)status.textContent='No artifacts yet. Find them on the field.';else status.textContent=career.artefacts.length+' collected · '+totalDistinct+' of 8 variants'}
  GUN_ORDER.forEach(gunId=>{
   const gun=GUNS[gunId];
   const variants=state==='active'?careerVariantsFor(gunId):[];
-  const card=document.createElement('div');
-  card.className='armouryCard';
-  card.style.borderColor=TIER_COLOUR[gun.tier];
+  const tc=TIER_COLOUR[gun.tier];
+  const slot=document.createElement('div');slot.className='armourySlot';
+  const card=document.createElement('div');card.className='armouryCard';card.style.background=tc;
   if(variants.length>0){
    const img=document.createElement('img');img.src=gun.img;img.alt=gun.name;card.appendChild(img);
    const nm=document.createElement('div');nm.className='armouryName';nm.textContent=gun.name;card.appendChild(nm);
    const pat=document.createElement('div');pat.className='armouryPattern';pat.textContent=(variants[0].gameName||'—')+(variants.length>1?' ×'+variants.length:'');card.appendChild(pat);
-   const tier=document.createElement('div');tier.className='armouryTier';tier.style.color=TIER_COLOUR[gun.tier];tier.textContent=gun.tier;card.appendChild(tier);
    card.onclick=()=>showArmouryDetail(gunId);
   }else{
    card.classList.add('locked');
    const q=document.createElement('div');q.className='armouryQ';q.textContent='?';card.appendChild(q);
    const nm=document.createElement('div');nm.className='armouryName';nm.textContent=gun.name;card.appendChild(nm);
-   const tier=document.createElement('div');tier.className='armouryTier';tier.style.color=TIER_COLOUR[gun.tier];tier.textContent=gun.tier;card.appendChild(tier);
   }
-  grid.appendChild(card);
+  slot.appendChild(card);
+  const tierEl=document.createElement('div');tierEl.className='armouryTier';tierEl.style.color=tc;tierEl.textContent=gun.tier;slot.appendChild(tierEl);
+  grid.appendChild(slot);
  });
 }
 function showArmouryDetail(gunId){
@@ -340,7 +298,7 @@ function showPrintOverlay(){
 }
 /* --- SCAN --- */
 async function stopScan(){let item=scanner;scanner=null;$('camera').classList.add('hidden');$('joinCamera').classList.add('hidden');if(item){try{await item.stop()}catch(e){}try{item.clear()}catch(e){}}busy=false}
-async function scan(kind,mode){currentScanMode=mode||'normal';reconcile();if(kind==='play'&&!s)return;await stopScan();if(typeof Html5Qrcode!=='function'){note('Scanner library unavailable. Load app once online.');return}let joinMode=kind==='join';let camBox=$(joinMode?'joinCamera':'camera');camBox.classList.remove('hidden');let lbl=camBox.querySelector('h2.scanLabel');if(!lbl){lbl=document.createElement('h2');lbl.className='scanLabel';camBox.insertBefore(lbl,camBox.firstChild)}lbl.textContent=joinMode?'SCAN HOST QR':(mode==='tag'?'SCAN TAGS TAKEN':(mode==='heal'?'SCAN HEALED':'SCAN QR'));try{let item=new Html5Qrcode(joinMode?'joinReader':'reader');scanner=item;await item.start({facingMode:'environment'},{fps:8,qrbox:{width:190,height:190}},async text=>{if(busy)return;busy=true;await stopScan();try{joinMode?getJoin(text):accept(text)}catch(e){note(e.message)}},()=>{})}catch(e){note('Camera error: '+e.message);await stopScan()}}
+async function scan(kind,mode){currentScanMode=mode||'normal';reconcile();if(kind==='play'&&!s)return;await stopScan();if(typeof Html5Qrcode!=='function'){note('Scanner library unavailable. Load app once online.');return}let joinMode=kind==='join';let camBox=$(joinMode?'joinCamera':'camera');camBox.classList.remove('hidden');let lbl=camBox.querySelector('h2.scanLabel');if(!lbl){lbl=document.createElement('h2');lbl.className='scanLabel';camBox.insertBefore(lbl,camBox.firstChild)}lbl.textContent=joinMode?'SCAN HOST QR':(mode==='tag'?'SCAN TAGS TAKEN':(mode==='heal'?'SCAN HEALED':'SCAN QR'));try{let item=new Html5Qrcode(joinMode?'joinReader':'reader');scanner=item;await item.start({facingMode:'environment',width:{ideal:1280},height:{ideal:720}},{fps:15},async text=>{if(busy)return;busy=true;await stopScan();try{joinMode?getJoin(text):accept(text)}catch(e){note(e.message)}},()=>{})}catch(e){note('Camera error: '+e.message);await stopScan()}}
 function download(){let blob=new Blob([JSON.stringify(s,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`mash-unit-${s.game}-${s.team}-${s.id.slice(0,6)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 /* --- EVENTS --- */
 $('hostOpen').onclick=()=>{view='hostForm';render()};$('hostBack').onclick=()=>{view='choice';render()};$('create').onclick=hostCreate;$('joinOpen').onclick=()=>{view='joinPanel';render()};$('joinBack').onclick=()=>{view=h?'hostPanel':'choice';render()};$('joinScan').onclick=()=>scan('join');$('joinStop').onclick=stopScan;$('previewBack').onclick=()=>{pending=null;view=h?'hostPanel':'joinPanel';render()};$('confirmJoin').onclick=join;
@@ -349,16 +307,7 @@ $('selfA').onclick=()=>{try{getJoin(joinCode('A'))}catch(e){note(e.message)}};$(
 $('eraseHost').onclick=()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone? Other phones will not be changed.')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}};
 $('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopScan;$('cancelMedic').onclick=cancelMedic;$('export').onclick=()=>{if(s)download()};$('reset').onclick=()=>{if(!s||!confirm("Erase this phone's player game and personal history?"))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');view=h?'hostPanel':'choice';render();note('Player reset.')};$('closeDialog').onclick=()=>$('dialog').close();
 $('unlockCareers').onchange=e=>{if(!h)return;h.unlockCareers=e.target.checked;saveHost(h);note(e.target.checked?'Career unlock ON — dormant collections will be recovered':'Career unlock OFF')};
-$('genArtifacts').onclick=()=>{
- if(!h)return;
- const checked=[];document.querySelectorAll('#artifactList input:checked').forEach(cb=>checked.push(cb.value));
- if(checked.length===0){note('Tick at least one artifact');return}
- h.artifacts=checked;
- if(!h.artifactIds)h.artifactIds={};
- checked.forEach(gunId=>{if(!h.artifactIds[gunId])h.artifactIds[gunId]=hex().slice(0,16)});
- saveHost(h);
- showPrintOverlay();
-};
+$('genArtifacts').onclick=()=>{if(!h)return;const checked=[];document.querySelectorAll('#artifactList input:checked').forEach(cb=>checked.push(cb.value));if(checked.length===0){note('Tick at least one artifact');return}h.artifacts=checked;if(!h.artifactIds)h.artifactIds={};checked.forEach(gunId=>{if(!h.artifactIds[gunId])h.artifactIds[gunId]=hex().slice(0,16)});saveHost(h);showPrintOverlay()};
 $('printClose').onclick=()=>$('printOverlay').classList.add('hidden');
 $('printBtn').onclick=()=>{try{window.print()}catch(e){}};
 $('armouryOpen').onclick=()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')};
@@ -407,22 +356,8 @@ $('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
   const yRatio=(clientY-rect.top)/rect.height;
   if(xRatio<0||xRatio>1||yRatio<0||yRatio>1){showBanner('Tap inside the image',2500);return}
   const {iw,ih}=getImgDims();
-  if(calibrating.step===1){
-   calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct:xRatio,yPct:yRatio,name:'Bird Rd Cnr'};
-   calibrating.step=2;calLock=true;
-   showBanner('Locked. Now tap Bonfire — 1 second...',1000);
-   setTimeout(()=>{calLock=false;showBanner('Step 2 of 2: Tap the map where Bonfire is (north-east of field).')},1000);
-  }else if(calibrating.step===2){
-   const dxPx=(xRatio-calibrating.a.xPct)*iw;
-   const dyPx=(yRatio-calibrating.a.yPct)*ih;
-   const tapDistPx=Math.hypot(dxPx,dyPx);
-   const imgDiagPx=Math.hypot(iw,ih);
-   if(tapDistPx<imgDiagPx*0.15){showBanner('Taps too close ('+Math.round(tapDistPx)+'px). Pick two points far apart.',3500);return}
-   calibrating.b={lat:ANCHOR_LOCS['Bonfire'].lat,lng:ANCHOR_LOCS['Bonfire'].lng,xPct:xRatio,yPct:yRatio,name:'Bonfire'};
-   anchors={a:calibrating.a,b:calibrating.b};
-   saveAnchors();exitCalibrate();updateStatusDefault();applyGrid();renderMarkers();startWatch();
-   showBanner('Anchors set.',2500);
-  }
+  if(calibrating.step===1){calibrating.a={lat:ANCHOR_LOCS['Bird Rd Cnr'].lat,lng:ANCHOR_LOCS['Bird Rd Cnr'].lng,xPct:xRatio,yPct:yRatio,name:'Bird Rd Cnr'};calibrating.step=2;calLock=true;showBanner('Locked. Now tap Bonfire — 1 second...',1000);setTimeout(()=>{calLock=false;showBanner('Step 2 of 2: Tap the map where Bonfire is (north-east of field).')},1000)}
+  else if(calibrating.step===2){const dxPx=(xRatio-calibrating.a.xPct)*iw;const dyPx=(yRatio-calibrating.a.yPct)*ih;const tapDistPx=Math.hypot(dxPx,dyPx);const imgDiagPx=Math.hypot(iw,ih);if(tapDistPx<imgDiagPx*0.15){showBanner('Taps too close ('+Math.round(tapDistPx)+'px). Pick two points far apart.',3500);return}calibrating.b={lat:ANCHOR_LOCS['Bonfire'].lat,lng:ANCHOR_LOCS['Bonfire'].lng,xPct:xRatio,yPct:yRatio,name:'Bonfire'};anchors={a:calibrating.a,b:calibrating.b};saveAnchors();exitCalibrate();updateStatusDefault();applyGrid();renderMarkers();startWatch();showBanner('Anchors set.',2500)}
  }
  viewport.addEventListener('touchstart',function(e){if(calibrating){if(e.touches.length===1)handleCalibrateTap(e.touches[0].clientX,e.touches[0].clientY);return}if(e.touches.length===2){pinching=true;panning=false;wasSingle=false;startDist=dist(e.touches[0],e.touches[1]);startMidX=midX(e.touches[0],e.touches[1]);startMidY=midY(e.touches[0],e.touches[1]);startScale=scale;startTx=tx;startTy=ty}else if(e.touches.length===1){const now=Date.now();if(wasSingle&&now-lastLift<300){overlay.classList.add('hidden');reset();stopWatch();wasSingle=false;return}wasSingle=true;panning=true;pinching=false;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}},{passive:true});
  viewport.addEventListener('touchmove',function(e){if(calibrating)return;if(pinching&&e.touches.length===2){e.preventDefault();const d=dist(e.touches[0],e.touches[1]),newScale=clamp(startScale*(d/startDist)),mx=midX(e.touches[0],e.touches[1]),my=midY(e.touches[0],e.touches[1]),ix=(startMidX-startTx)/startScale,iy=(startMidY-startTy)/startScale;scale=newScale;tx=mx-ix*scale;ty=my-iy*scale;clampPan();apply()}else if(panning&&e.touches.length===1){e.preventDefault();tx=startTx+(e.touches[0].clientX-startX);ty=startTy+(e.touches[0].clientY-startY);clampPan();apply()}},{passive:false});
@@ -431,13 +366,7 @@ $('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
  $('mapButton').onclick=()=>{reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers()};
  $('mapClose').onclick=()=>{overlay.classList.add('hidden');reset();stopWatch()};
  tools.grid.onclick=()=>{gridOn=!gridOn;tools.grid.classList.toggle('active',gridOn);applyGrid();renderMarkers()};
- tools.loc.onclick=()=>{
-  if(mapWatchId!==null){stopWatch();showBanner('GPS tracking off',1500);return}
-  if(!anchors||!anchors.a||!anchors.b){showBanner('Anchors not ready',2500);return}
-  if(!navigator.geolocation){showBanner('GPS not supported',3000);return}
-  showBanner('Getting GPS...');
-  navigator.geolocation.getCurrentPosition(p=>{banner.style.display='none';showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);startWatch()},e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),{enableHighAccuracy:true,timeout:20000,maximumAge:0});
- };
+ tools.loc.onclick=()=>{if(mapWatchId!==null){stopWatch();showBanner('GPS tracking off',1500);return}if(!anchors||!anchors.a||!anchors.b){showBanner('Anchors not ready',2500);return}if(!navigator.geolocation){showBanner('GPS not supported',3000);return}showBanner('Getting GPS...');navigator.geolocation.getCurrentPosition(p=>{banner.style.display='none';showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);startWatch()},e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),{enableHighAccuracy:true,timeout:20000,maximumAge:0})};
  tools.cal.onclick=()=>{if(calibrating){exitCalibrate();return}if(!confirm('Re-calibrate anchors? Only needed if map image changed.'))return;anchors=null;try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}dot.style.display='none';youLabel.style.display='none';gridLayer.classList.remove('on');gridOn=false;tools.grid.classList.remove('active');renderMarkers();enterCalibrate()};
  tools.debug.onclick=()=>{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){try{debugText.value=JSON.stringify(JSON.parse(raw),null,2)}catch(e){debugText.value=raw}}else{debugText.value=JSON.stringify(DEFAULT_ANCHORS,null,2)+'\n\n(DEFAULT — no local override saved)'}debugPanel.classList.add('on')};
  $('mapDebugClose').onclick=()=>debugPanel.classList.remove('on');
