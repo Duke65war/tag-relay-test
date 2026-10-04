@@ -5,7 +5,6 @@ dialog::backdrop{background:#000b}
 dialog.armoury{background:#3d6b57;color:#000}
 dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.armoury ul,dialog.armoury span{color:#000!important}
 @media(max-height:680px){.offerqr img,.offerqr canvas{width:min(32svh,45vw,170px)!important}.readyPanel{min-height:100px}.actions button{min-height:50px}#stage button{min-height:36px;padding:6px}}
-/* --- HEADER & FOOTER --- */
 .mash-header{text-align:center;margin:10px 0 15px 0;padding:5px}
 .mash-title{font-size:34px;font-weight:900;margin:0;letter-spacing:2px;display:inline-block;color:#6b8e23;text-shadow:1px 1px 2px rgba(0,0,0,0.5)}
 .mash-title .sep{font-size:22px;vertical-align:middle}
@@ -13,10 +12,8 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .mash-subtitle{font-size:14px;font-weight:700;letter-spacing:4px;color:#d4af37;margin:5px 0 0 0;text-transform:uppercase}
 .mash-footer{text-align:center;padding:20px 0 10px 0;font-size:13px;color:#c5d3cb;letter-spacing:1px;opacity:0.8;margin-top:auto}
 .mash-footer p{margin:2px 0}
-/* --- DOG TAG BUTTON --- */
 .tagButton{display:block;width:100%;aspect-ratio:850/510;background:url('./dogtag-button.png') center/contain no-repeat;border:0;padding:0;margin:8px 0;cursor:pointer;position:relative;min-height:auto}
 .tagButtonText{position:absolute;right:7%;top:36%;transform:translateY(-50%);color:#1a1a1a;font-family:"Arial Black",Arial,sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:0px 1px 1px rgba(255,255,255,0.25),0px -1px 1px rgba(0,0,0,0.5);pointer-events:none;white-space:nowrap;text-align:right;line-height:1}
-/* --- MAP OVERLAY --- */
 #mapOverlay{position:fixed;inset:0;background:#000;z-index:9999;overflow:hidden;touch-action:none}
 #mapViewport{position:absolute;inset:0;overflow:hidden;touch-action:none}
 #mapInner{position:absolute;top:0;left:0;width:100%;height:auto;transform-origin:0 0;will-change:transform}
@@ -41,7 +38,6 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 #mapDebugPanel textarea{flex:1;background:#0e1c17;color:#b8e96b;font-family:monospace;font-size:11px;padding:10px;border-radius:8px;border:1px solid #354d40;resize:none;word-break:break-all}
 #mapDebugPanel .debugRow{display:flex;gap:8px;margin-top:12px}
 #mapDebugPanel .debugRow button{flex:1}
-/* --- ARMOURY --- */
 #armouryOverlay{position:fixed;inset:0;background:#1b3429;color:#f0f6ef;z-index:10100;overflow-y:auto;padding:20px}
 #armouryOverlay h2{margin:0 0 6px 0;font-size:24px;color:#d4af37;letter-spacing:3px;text-align:center;text-shadow:0 2px 4px rgba(0,0,0,0.6)}
 #armouryStatus{text-align:center;font-size:13px;color:#f0f6ef;margin:0 0 16px 0;text-shadow:0 1px 2px rgba(0,0,0,0.5)}
@@ -55,41 +51,56 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .armouryCard.locked{opacity:0.9}
 .armouryQ{font-size:48px;font-weight:900;color:#000;line-height:1;margin-top:8px;opacity:0.55}
 .armouryTier{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;text-align:center;margin-top:6px;text-shadow:0 1px 3px rgba(0,0,0,0.7)}
-/* --- PRINT OVERLAY --- */
-#printOverlay{position:fixed;inset:0;background:#000;color:#fff;z-index:10500;overflow-y:auto;padding:20px}
-#printOverlay h2{color:#d4af37;font-size:20px;text-align:center;margin:0 0 12px 0}
-#printClose{position:fixed;top:16px;right:16px;z-index:10600;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.85);color:#fff;font-size:22px;font-weight:900;border:2px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
-.printCard{background:#3d6b57;padding:16px;margin:16px 0;border-radius:12px;text-align:center;border:2px solid #354d40}
-.printCard h3{margin:8px 0;font-size:18px;color:#f0f6ef}
-.printCard img{display:block;margin:8px auto;border-radius:6px;max-height:120px;max-width:80%}
-.printCard .qr{margin:8px auto}
-.printCard .code{font-size:11px;color:#c5d3cb;margin:6px 0 0 0;font-family:monospace;word-break:break-all}
-#printBtn{margin:20px 0;width:100%}
-.hostArtifacts{margin-top:12px;padding-top:12px;border-top:1px solid #354d40}
-.hostArtifacts label{display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:600}
-.hostArtifacts input[type=checkbox]{width:auto;margin:0}
-@media print{
-  body>*:not(#printOverlay){display:none!important}
-  #printOverlay{position:static;background:#fff;color:#000;padding:0;overflow:visible}
-  #printOverlay h2{color:#000}
-  #printClose,#printBtn{display:none!important}
-  .printCard{page-break-inside:avoid;background:#fff;color:#000;border:2px solid #000}
-  .printCard h3{color:#000}
-  .printCard .code{color:#000}
-}
 </style></head><body><main>
 <header class="mash-header">
   <h1 class="mash-title">M<span class="sep">▪︎</span>A<span class="sep">▪︎</span>S<span class="sep">▪︎</span>H <span class="unit">unit</span></h1>
   <p class="mash-subtitle">BY WAR ADVENTURES</p>
 </header>
 <div id="notice" role="status"></div>
-<section id="setup" class="card"><div id="choice"><h2>Start or join</h2><button id="hostOpen" class="wide">HOST: CREATE GAME</button><button id="joinOpen" class="wide alt">PLAYER: SCAN TEAM JOIN QR</button><button id="armouryOpen" class="wide alt">🎒 MY ARMOURY</button></div><div id="hostForm" class="hidden"><h2>Host rules</h2><label>Game name<input id="game" maxlength="12" value="WAR1"></label><label>Lives<select id="lives"><option value="U">Unlimited</option></select></label><label>Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="300"></label><label>Medic rule<select id="medic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label><div class="row"><label>Red team label (A)<input id="labelA" maxlength="12" value="A"></label><label>Blue team label (B)<input id="labelB" maxlength="12" value="B"></label></div><div class="row"><label>Red base<select id="baseA"></select></label><label>Blue base<select id="baseB"></select></label></div><p class="compact muted">Use a unique game name each week. It becomes the pattern name on every artifact found in this game.</p><button id="create" class="wide">CREATE GAME &amp; LOCK RULES</button><button id="hostBack" class="wide alt">Back</button></div>
-<div id="hostPanel" class="hidden"><h2>Host QR codes</h2><p id="hostInfo" class="compact"></p><p class="compact">Show JOIN codes only to assigned players. Place BASE codes at the actual bases.</p><div class="row"><button id="hostJA">JOIN RED</button><button id="hostJB">JOIN BLUE</button></div><div class="row"><button id="hostBA" class="alt">BASE RED</button><button id="hostBB" class="alt">BASE BLUE</button></div><div id="hostQR"></div><details><summary>Host playing on this phone?</summary><p class="compact">Select the team assigned to you. Other players must scan the host's screen.</p><div class="row"><button id="selfA">JOIN RED</button><button id="selfB">JOIN BLUE</button></div></details>
-<div class="hostArtifacts"><h3>Artifacts for this game</h3><p class="compact">Tick the artifacts to hide on the field. Tap generate to produce paper QRs.</p><div id="artifactList"></div><button id="genArtifacts" class="wide alt">GENERATE ARTIFACT QRs</button></div>
-<label style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px;background:#30443a;border-radius:8px"><input type="checkbox" id="unlockCareers" style="width:auto;margin:0"><span class="compact">Unlock dormant careers (recover player collections on join)</span></label>
-<button id="eraseHost" class="wide danger">Erase host setup</button></div>
-<div id="joinPanel" class="hidden"><h2>Scan host JOIN code</h2><button id="joinScan" class="wide">SCAN QR</button><div id="joinCamera" class="hidden"><div id="joinReader"></div><button id="joinStop" class="alt">Close camera</button></div><button id="joinBack" class="wide alt">Back</button></div><div id="preview" class="hidden"><h2 id="previewTeam"></h2><p id="previewRules"></p><label>Callsign<input id="name" maxlength="32"></label><button id="confirmJoin" class="wide">JOIN ASSIGNED TEAM</button><button id="previewBack" class="wide alt">Back</button></div></section>
-<section id="play" class="hidden"><div id="playarea" class="card"><div id="bar" class="bar" aria-label="Life status"></div><div id="actions" class="actions"><button id="hit">I'M HIT</button><button id="scan" class="qrScanBtn"><img id="scanImg" src="./qrscanbu.jpg" alt="Scan QR"></button></div><div id="stage"></div><div id="camera" class="hidden"><div id="reader"></div><button id="stop" class="alt">Close camera</button></div></div><section class="card"><div class="row"><button id="mapButton" class="alt">🗺️ MAP</button><button id="armouryPlayBtn" class="alt">🎒 ARMOURY</button></div></section><section class="card"><h2>Tag Collection</h2><div id="trophies"></div><div id="medals"></div></section><section class="card"><p id="identity"></p><details id="pendingBox"><summary>Medic attempt</summary><p id="pendingInfo"></p><button id="cancelMedic">Cancel attempt</button></details><details><summary>Events and export</summary><ol id="history"></ol><button id="export">Export this phone's log</button></details><details id="hostTools" class="hidden"><summary>Host QR codes</summary><p class="compact">Do not use this on-phone base QR instead of going to the base.</p><div class="row"><button id="playJA">JOIN RED</button><button id="playJB">JOIN BLUE</button></div><div class="row"><button id="playBA">BASE RED</button><button id="playBB">BASE BLUE</button></div><div id="playHostQR"></div></details><details><summary>Reset player</summary><button id="reset" class="danger">End this phone's game</button></details></section></section>
+<section id="setup" class="card">
+  <div id="choice">
+    <h2>Start or join</h2>
+    <button id="joinOpen" class="wide alt">PLAYER: SCAN TEAM JOIN QR</button>
+    <button id="armouryOpen" class="wide alt">🎒 MY ARMOURY</button>
+  </div>
+  <div id="joinPanel" class="hidden">
+    <h2>Scan host JOIN code</h2>
+    <button id="joinScan" class="wide">SCAN QR</button>
+    <div id="joinCamera" class="hidden"><div id="joinReader"></div><button id="joinStop" class="alt">Close camera</button></div>
+    <button id="joinBack" class="wide alt">Back</button>
+  </div>
+  <div id="preview" class="hidden">
+    <h2 id="previewTeam"></h2>
+    <p id="previewRules"></p>
+    <label>Callsign<input id="name" maxlength="32"></label>
+    <button id="confirmJoin" class="wide">JOIN ASSIGNED TEAM</button>
+    <button id="previewBack" class="wide alt">Back</button>
+  </div>
+</section>
+<section id="play" class="hidden">
+  <div id="playarea" class="card">
+    <div id="bar" class="bar" aria-label="Life status"></div>
+    <div id="actions" class="actions">
+      <button id="hit">I'M HIT</button>
+      <button id="scan" class="qrScanBtn"><img id="scanImg" src="./qrscanbu.jpg" alt="Scan QR"></button>
+    </div>
+    <div id="stage"></div>
+    <div id="camera" class="hidden"><div id="reader"></div><button id="stop" class="alt">Close camera</button></div>
+  </div>
+  <section class="card">
+    <div class="row">
+      <button id="mapButton" class="alt">🗺️ MAP</button>
+      <button id="armouryPlayBtn" class="alt">🎒 ARMOURY</button>
+    </div>
+  </section>
+  <section class="card"><h2>Tag Collection</h2><div id="trophies"></div><div id="medals"></div></section>
+  <section class="card">
+    <p id="identity"></p>
+    <details id="pendingBox"><summary>Medic attempt</summary><p id="pendingInfo"></p><button id="cancelMedic">Cancel attempt</button></details>
+    <details><summary>Events and export</summary><ol id="history"></ol><button id="export">Export this phone's log</button></details>
+    <details><summary>Reset player</summary><button id="reset" class="danger">End this phone's game</button></details>
+  </section>
+</section>
 <footer class="mash-footer">
   <p>Mobile Airsoft Survival Hud</p>
   <p>Unit</p>
@@ -129,13 +140,8 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   <p id="armouryStatus"></p>
   <div id="armouryGrid"></div>
 </div>
-<div id="printOverlay" class="hidden">
-  <button id="printClose">✕</button>
-  <h2>Print or screenshot these QRs</h2>
-  <p class="compact" style="text-align:center;color:#c5d3cb">Hide each paper in the field. Destroy after collection.</p>
-  <div id="printArea"></div>
-  <button id="printBtn" class="alt">PRINT / SAVE PDF</button>
-</div>
-<dialog id="dialog"><div id="dialogText"></div><button id="closeDialog">Close</button></dialog><script src="./qrcode.min.js"></script>
+<dialog id="dialog"><div id="dialogText"></div><button id="closeDialog">Close</button></dialog>
+<script>window.MASH_MODE='player';</script>
+<script src="./qrcode.min.js"></script>
 <script src="./html5-qrcode.min.js"></script>
 <script src="./app.js"></script></body></html>
