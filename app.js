@@ -31,7 +31,7 @@ const GUNS={
  'shotgun':{name:'Shotgun',tier:'Service',img:'./armoury/Shot1.png'}
 };
 const GUN_ORDER=['ak47','ames85','deagle','g36c','knife','m60','mac10','shotgun'];
-const TIER_COLOUR={Field:'#888888',Service:'#b0b8c0',Veteran:'#6b8e23',Elite:'#d4af37',Prototype:'#c0392b'};
+const TIER_COLOUR={Field:'#888888',Service:'#b0b8c0',Veteran:'#3d6b57',Elite:'#d4af37',Prototype:'#e67e22'};
 const FIVE_WEEKS=5*7*24*60*60*1000,EIGHT_WEEKS=8*7*24*60*60*1000;
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null,career=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,12}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
@@ -170,7 +170,7 @@ function renderArtifactCheckboxes(){
 }
 function renderSetup(){$('setup').classList.toggle('hidden',!!s);$('play').classList.toggle('hidden',!s);if(s)return;let v=h&&view==='choice'?'hostPanel':view;for(let id of ['choice','hostForm','hostPanel','joinPanel','preview'])$(id).classList.toggle('hidden',id!==v);if(v==='hostPanel'&&h){$('hostInfo').textContent=`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;if(!$('hostQR').childNodes.length)hostDraw('J','A','hostQR');renderArtifactCheckboxes();const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers}if(v==='preview'&&pending){$('previewTeam').textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;$('previewRules').textContent=ruleText(pending.rules)}}
 function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';document.body.classList.toggle('returning',ret);document.body.classList.toggle('mist',dead);$('playarea').classList.toggle('teamB',s.team==='B');$('identity').textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;let bar=$('bar');bar.replaceChildren();s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;if(tag.status==='OFFERED'&&offered()&&s.rules.medic!=='none'){el.classList.add('tappable');el.onclick=()=>scan('play','heal')}bar.append(el)});bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));$('actions').className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');$('hit').disabled=phase!=='ACTIVE';$('scan').disabled=phase!=='ACTIVE'&&!ret;
- const scanImg=$('scanImg');if(scanImg)scanImg.src=ret?'./baserespawn.jpg':'./qrscanbu.jpg';
+ const scanImg=$('scanImg');if(scanImg){if(ret)scanImg.src='./baserespawn.jpg';else if(s.rules.medic==='none')scanImg.src='./Reapersrewards1.jpg';else scanImg.src='./qrscanbu.jpg'}
  let st=$('stage');st.replaceChildren();offerSlot=-1;offerShown='';
  if(s.outbound&&s.outbound.type==='K'){
   let head=document.createElement('h2');head.textContent='THANKS';st.append(head);
@@ -216,7 +216,7 @@ function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=p
  let groups=new Map();for(let w of s.wins){let g=groups.get(w.owner)||{name:w.name,items:[]};g.items.push(w);groups.set(w.owner,g)}
  let wall=$('trophies');wall.replaceChildren();if(!groups.size)wall.textContent='None yet';
  for(let g of groups.values()){let b=document.createElement('button');b.className='tile';let img=document.createElement('img');img.src='./dogtag.svg';img.alt='';img.style.width='22px';img.style.height='22px';img.style.verticalAlign='middle';let strong=document.createElement('strong');strong.textContent=' '+g.items.length;let label=document.createElement('span');label.textContent=g.name.slice(0,4).toUpperCase();b.append(img,strong,label);
-  b.onclick=()=>{let area=$('dialogText');area.replaceChildren();let hh=document.createElement('h2');hh.textContent=g.name;area.append(hh);for(let w of [...g.items].reverse()){let p=document.createElement('p');p.textContent=`${w.team}${w.n} · ${w.offer.slice(0,10)} · ${new Date(w.capturedAt).toLocaleString()}`;area.append(p)}$('dialog').showModal()};
+  b.onclick=()=>{const dlg=$('dialog');dlg.classList.remove('armoury');let area=$('dialogText');area.replaceChildren();let hh=document.createElement('h2');hh.textContent=g.name;area.append(hh);for(let w of [...g.items].reverse()){let p=document.createElement('p');p.textContent=`${w.team}${w.n} · ${w.offer.slice(0,10)} · ${new Date(w.capturedAt).toLocaleString()}`;area.append(p)}dlg.showModal()};
   wall.append(b)}
  $('medals').textContent=s.medics.length?'💉 '+s.medics.length+' medic assists':'';
  $('history').replaceChildren();for(let e of [...s.events].reverse()){let li=document.createElement('li');li.textContent=e.at+': '+e.message;$('history').append(li)}
@@ -236,7 +236,7 @@ function renderArmoury(){
   const variants=state==='active'?careerVariantsFor(gunId):[];
   const tc=TIER_COLOUR[gun.tier];
   const slot=document.createElement('div');slot.className='armourySlot';
-  const card=document.createElement('div');card.className='armouryCard';card.style.background=tc;
+  const card=document.createElement('div');card.className='armouryCard';
   if(variants.length>0){
    const img=document.createElement('img');img.src=gun.img;img.alt=gun.name;card.appendChild(img);
    const nm=document.createElement('div');nm.className='armouryName';nm.textContent=gun.name;card.appendChild(nm);
@@ -256,10 +256,12 @@ function showArmouryDetail(gunId){
  const gun=GUNS[gunId];
  const variants=careerVariantsFor(gunId);
  if(!variants.length)return;
+ const dlg=$('dialog');
+ dlg.classList.add('armoury');
  const area=$('dialogText');area.replaceChildren();
  const img=document.createElement('img');img.src=gun.img;img.alt=gun.name;img.style.display='block';img.style.width='100%';img.style.maxHeight='220px';img.style.objectFit='contain';img.style.margin='0 auto 8px';area.appendChild(img);
  const h1=document.createElement('h2');h1.textContent=gun.name;h1.style.textAlign='center';area.appendChild(h1);
- const tier=document.createElement('p');tier.textContent=gun.tier;tier.style.color=TIER_COLOUR[gun.tier];tier.style.fontWeight='800';tier.style.textAlign='center';tier.style.margin='0 0 12px 0';area.appendChild(tier);
+ const tier=document.createElement('p');tier.textContent=gun.tier;tier.style.fontWeight='800';tier.style.textAlign='center';tier.style.margin='0 0 12px 0';area.appendChild(tier);
  if(variants.length===1){
   const v=variants[0];
   const p1=document.createElement('p');p1.textContent='Found in: '+v.gameName;area.appendChild(p1);
@@ -274,7 +276,7 @@ function showArmouryDetail(gunId){
   });
   area.appendChild(ul);
  }
- $('dialog').showModal();
+ dlg.showModal();
 }
 /* --- PRINT --- */
 function showPrintOverlay(){
