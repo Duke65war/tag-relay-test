@@ -20,6 +20,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 #mapImage{display:block;width:100%;height:auto;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
 #mapGridLayer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;opacity:0.85;background-repeat:repeat;display:none}
 #mapGridLayer.on{display:block}
+#mapBoundarySvg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4}
 #mapMarkers{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5}
 .mapMarker{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);transform-origin:center center}
 .mapMarkerDot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(0,0,0,0.7)}
@@ -51,6 +52,12 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .armouryCard.locked{opacity:0.9}
 .armouryQ{font-size:48px;font-weight:900;color:#000;line-height:1;margin-top:8px;opacity:0.55}
 .armouryTier{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;text-align:center;margin-top:6px;text-shadow:0 1px 3px rgba(0,0,0,0.7)}
+.armouryOutlastSlot{grid-column:1 / -1;display:flex;flex-direction:column;align-items:stretch}
+.armouryOutlastCard{background:#3d6b57;border:3px solid rgba(0,0,0,0.5);border-radius:10px;padding:14px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:14px;box-shadow:0 3px 6px rgba(0,0,0,0.4)}
+.armouryOutlastCard .icon{font-size:44px;line-height:1}
+.armouryOutlastCard .num{font-size:40px;font-weight:900;color:#d4af37;line-height:1;text-shadow:0 2px 4px rgba(0,0,0,0.5)}
+.armouryOutlastCard .lbl{font-size:14px;font-weight:800;color:#000;letter-spacing:1px}
+.armouryOutlastTier{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;text-align:center;margin-top:6px;color:#d4af37;text-shadow:0 1px 3px rgba(0,0,0,0.7)}
 #printOverlay{position:fixed;inset:0;background:#000;color:#fff;z-index:10500;overflow-y:auto;padding:20px}
 #printOverlay h2{color:#d4af37;font-size:20px;text-align:center;margin:0 0 12px 0}
 #printClose{position:fixed;top:16px;right:16px;z-index:10600;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.85);color:#fff;font-size:22px;font-weight:900;border:2px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
@@ -87,12 +94,27 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   </div>
   <div id="hostForm" class="hidden">
     <h2>Host rules</h2>
+    <div class="row" style="margin-bottom:8px">
+      <button id="modeStandard" class="wide">STANDARD</button>
+      <button id="modeOutlast" class="wide alt">OUTLAST</button>
+    </div>
     <label>Game name<input id="game" maxlength="12" value="WAR1"></label>
-    <label>Lives<select id="lives"><option value="U">Unlimited</option></select></label>
-    <label>Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="300"></label>
-    <label>Medic rule<select id="medic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
+    <label id="livesLabel">Lives<select id="lives"><option value="U">Unlimited</option></select></label>
+    <label id="secondsLabel">Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="300"></label>
+    <label id="medicLabel">Medic rule<select id="medic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
     <div class="row"><label>Red team label (A)<input id="labelA" maxlength="12" value="A"></label><label>Blue team label (B)<input id="labelB" maxlength="12" value="B"></label></div>
-    <div class="row"><label>Red base<select id="baseA"></select></label><label>Blue base<select id="baseB"></select></label></div>
+    <div class="row" id="basesRow"><label>Red base<select id="baseA"></select></label><label>Blue base<select id="baseB"></select></label></div>
+    <div id="outlastPanel" class="hidden">
+      <div class="card" style="margin:8px 0"><h3 style="margin-top:0">OUTLAST settings</h3>
+        <button id="pickTarget" class="wide alt">📍 TAP MAP TO PLACE TARGET</button>
+        <p class="compact muted" id="targetInfo">No target set</p>
+        <label>Start radius (m)<input id="olStartR" type="number" min="20" max="500" step="5" value="100"></label>
+        <label>Shrink step (m)<input id="olStep" type="number" min="5" max="100" step="5" value="20"></label>
+        <label>Interval (min)<input id="olInterval" type="number" min="1" max="30" step="1" value="10"></label>
+        <label>Start time (HH:MM)<input id="olStartTime" type="time" value="14:30"></label>
+        <p class="compact muted" id="olPreview"></p>
+      </div>
+    </div>
     <p class="compact muted">Use a unique game name each week. It becomes the pattern name on every artifact found in this game.</p>
     <button id="create" class="wide">CREATE GAME &amp; LOCK RULES</button>
     <button id="hostBack" class="wide alt">Back</button>
@@ -102,11 +124,16 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <p id="hostInfo" class="compact"></p>
     <p class="compact">Show JOIN codes only to assigned players. Place BASE codes at the actual bases.</p>
     <div class="row"><button id="hostJA">JOIN RED</button><button id="hostJB">JOIN BLUE</button></div>
-    <div class="row"><button id="hostBA" class="alt">BASE RED</button><button id="hostBB" class="alt">BASE BLUE</button></div>
+    <div class="row" id="hostBaseBtns"><button id="hostBA" class="alt">BASE RED</button><button id="hostBB" class="alt">BASE BLUE</button></div>
     <div id="hostQR"></div>
-    <details><summary>Host playing on this phone?</summary><p class="compact">Select the team assigned to you. Other players must scan the host's screen.</p><div class="row"><button id="selfA">JOIN RED</button><button id="selfB">JOIN BLUE</button></div></details>
+    <details><summary>Host playing on this phone?</summary><p class="compact">Select the team assigned to you.</p><div class="row"><button id="selfA">JOIN RED</button><button id="selfB">JOIN BLUE</button></div></details>
     <div class="hostArtifacts"><h3>Artifacts for this game</h3><p class="compact">Tick the artifacts to hide on the field. Tap generate to produce paper QRs.</p><div id="artifactList"></div><button id="genArtifacts" class="wide alt">GENERATE ARTIFACT QRs</button></div>
-    <label style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px;background:#30443a;border-radius:8px"><input type="checkbox" id="unlockCareers" style="width:auto;margin:0"><span class="compact">Unlock dormant careers (recover player collections on join)</span></label>
+    <label style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px;background:#30443a;border-radius:8px"><input type="checkbox" id="unlockCareers" style="width:auto;margin:0"><span class="compact">Unlock dormant careers</span></label>
+    <div id="winnerSection" class="hidden" style="margin:12px 0;padding:12px;background:#3d6b57;border-radius:9px">
+      <h3 style="margin-top:0;color:#fff">OUTLAST — Declare winner</h3>
+      <p class="compact" style="color:#fff">Once the last player is standing, show this QR. Only that player scans it.</p>
+      <button id="showWinnerQR" class="wide">SHOW WINNER QR</button>
+    </div>
     <button id="eraseHost" class="wide danger">Erase host setup</button>
   </div>
   <div id="joinPanel" class="hidden">
@@ -146,9 +173,8 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <details><summary>Events and export</summary><ol id="history"></ol><button id="export">Export this phone's log</button></details>
     <details id="hostTools" class="hidden">
       <summary>Host QR codes</summary>
-      <p class="compact">Do not use this on-phone base QR instead of going to the base.</p>
       <div class="row"><button id="playJA">JOIN RED</button><button id="playJB">JOIN BLUE</button></div>
-      <div class="row"><button id="playBA">BASE RED</button><button id="playBB">BASE BLUE</button></div>
+      <div class="row" id="playBaseBtns"><button id="playBA">BASE RED</button><button id="playBB">BASE BLUE</button></div>
       <div id="playHostQR"></div>
     </details>
     <details><summary>Reset player</summary><button id="reset" class="danger">End this phone's game</button></details>
@@ -172,6 +198,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <div id="mapInner">
       <img id="mapImage" src="./map1.jpeg" alt="Field map">
       <div id="mapGridLayer"></div>
+      <svg id="mapBoundarySvg" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="mapMarkers"></div>
       <div id="mapBlueDot"></div>
       <div id="mapYouLabel">You</div>
