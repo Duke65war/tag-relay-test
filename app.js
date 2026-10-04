@@ -1,5 +1,6 @@
 (()=>{'use strict';
 const KEY='mash-unit-v4',HOST='mash-unit-v4-host',ANCHOR_KEY='mash-unit-anchors',CAREER_KEY='mash-unit-career',V='MU4',$=id=>document.getElementById(id),time=()=>Date.now(),hex=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,'0')).join('');
+const HOST_MODE=(()=>{try{return typeof window!=='undefined'&&window.MASH_MODE==='host'}catch(e){return false}})();
 const BASES={
  'Jb':{lat:-37.308088,lng:174.688677,group:'main'},
  'Diego Garcia':{lat:-37.306542,lng:174.690556,group:'main'},
@@ -37,12 +38,12 @@ let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown=
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,12}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
 const ruleOK=r=>r&&(/^(U|[1-9]|1[0-9]|20)$/.test(String(r.lives)))&&Number.isInteger(r.seconds)&&r.seconds>=30&&r.seconds<=600&&['none','one','two'].includes(r.medic)&&labelOK(r.a)&&labelOK(r.b)&&r.a!==r.b;
 const ruleText=r=>`${r.lives==='U'?'Unlimited':r.lives+' lives'} · ${r.seconds}s · ${r.medic==='none'?'no medic':r.medic==='one'?'one-scan medic':'two-scan medic (30s)'}`;
-function note(x){$('notice').textContent=x||''}function record(x,m){x.events.push({at:new Date().toISOString(),message:m})}
+function note(x){const el=$('notice');if(el)el.textContent=x||''}function record(x,m){x.events.push({at:new Date().toISOString(),message:m})}
 function buzz(kind){try{if(!navigator.vibrate)return;navigator.vibrate(kind==='elim'?[300,100,300,100,300]:[200,100,200])}catch(e){}}
 function persist(x){try{localStorage.setItem(KEY,JSON.stringify(x));s=x;render();return true}catch(e){note('SAVE FAILED. Do not continue play; browser storage unavailable.');return false}}
 function edit(fn){if(!s)return false;let x=JSON.parse(JSON.stringify(s));fn(x);return persist(x)}
 function saveHost(x){try{localStorage.setItem(HOST,JSON.stringify(x));h=x;return true}catch(e){note('Host setup could not be saved. Do not share game QRs.');return false}}
-function makeQR(node,text,size=216){node.replaceChildren();if(typeof QRCode!=='function'){node.textContent='QR library not loaded.';return}try{new QRCode(node,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){node.textContent='QR drawing failed'}}
+function makeQR(node,text,size=216){if(!node)return;node.replaceChildren();if(typeof QRCode!=='function'){node.textContent='QR library not loaded.';return}try{new QRCode(node,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){node.textContent='QR drawing failed'}}
 /* --- CAREER --- */
 function loadCareer(){try{const raw=localStorage.getItem(CAREER_KEY);if(raw){const c=JSON.parse(raw);if(c&&typeof c.lastPlayed==='number'&&Array.isArray(c.artefacts)){career=c;return}}}catch(e){}career={lastPlayed:Date.now(),artefacts:[]}}
 function saveCareer(){try{localStorage.setItem(CAREER_KEY,JSON.stringify(career))}catch(e){}}
@@ -61,7 +62,7 @@ function returnCode(type,owner,offer){return code(type,s.gid,offer.id,owner.id,o
 function thanksCode(offerId,medicId,victimName,deadline){return code('K',s.gid,offerId,medicId,victimName,deadline)}
 function parse(raw){let a;try{a=JSON.parse(String(raw||'').trim())}catch(e){throw Error('Not a valid M.A.S.H. QR')}if(!Array.isArray(a)||a[0]!==V||!['J','B','O','T','H','K','A'].includes(a[1]))throw Error('Wrong game QR version or type');return a}
 function getJoin(raw){let a=parse(raw);if(a[1]!=='J'||a.length!==10||!idOK(a[2])||typeof a[3]!=='string'||!/^[A-Z0-9_-]{3,12}$/.test(a[3])||!['A','B'].includes(a[9]))throw Error('Not a valid team JOIN QR');let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8]};if(!ruleOK(rules))throw Error('Invalid game settings');if(s)throw Error('This phone already joined a game; reset explicitly to join another');if(h&&h.gid!==a[2])throw Error('Host setup belongs to another game');pending={gid:a[2],game:a[3],rules,team:a[9]};view='preview';render();note('Team assigned by host QR. Enter your callsign.')}
-function hostCreate(){if(h||s){note('Host/player game already exists. Reset explicitly before making a new one.');return}let game=$('game').value.trim().toUpperCase(),rules={lives:$('lives').value,seconds:Number($('seconds').value),medic:$('medic').value,a:$('labelA').value.trim().toUpperCase(),b:$('labelB').value.trim().toUpperCase()},baseA=$('baseA').value,baseB=$('baseB').value;if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Game: 3–12 letters/numbers; lives 1–20/Unlimited; time 30–600; distinct team labels 1–12 letters/numbers/dots.');return}if(baseA===baseB){note('Red and blue bases must be different.');return}if(saveHost({version:4,gid:hex(),game,rules,baseA,baseB,created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){view='hostPanel';render();note('Game created. Show JOIN codes to assigned teams, BASE codes at bases.')}}
+function hostCreate(){if(!HOST_MODE)return;if(h||s){note('Host/player game already exists. Reset explicitly before making a new one.');return}let game=$('game').value.trim().toUpperCase(),rules={lives:$('lives').value,seconds:Number($('seconds').value),medic:$('medic').value,a:$('labelA').value.trim().toUpperCase(),b:$('labelB').value.trim().toUpperCase()},baseA=$('baseA').value,baseB=$('baseB').value;if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Game: 3–12 letters/numbers; lives 1–20/Unlimited; time 30–600; distinct team labels 1–12 letters/numbers/dots.');return}if(baseA===baseB){note('Red and blue bases must be different.');return}if(saveHost({version:4,gid:hex(),game,rules,baseA,baseB,created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){view='hostPanel';render();note('Game created. Show JOIN codes to assigned teams, BASE codes at bases.')}}
 function join(){
  if(!pending||s)return;
  let name=$('name').value.trim();if(!nameOK(name)){note('Enter a callsign up to 32 characters');return}
@@ -154,8 +155,9 @@ function accept(raw){reconcile();if(!s)throw Error('Join a team first');let a=pa
 function cancelMedic(){if(!s?.medPending)return;edit(x=>{x.medPending=null;record(x,'Medic attempt cancelled')});note('Medic attempt cleared.')}
 function secondsLeft(){let el=$('timer');if(!el||!offered())return;let t=Math.max(0,Math.ceil((s.offer.deadline-time())/1000));el.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`}
 function refreshOffer(){if(!offered())return;let slot=Math.floor(time()/8000);if(slot===offerSlot)return;offerSlot=slot;let node=$('offerQR');if(node){let text=offerCode();offerShown=text;makeQR(node,text,216)}}
-function hostDraw(type,t,target){if(!h)return;let box=$(target);box.replaceChildren();let title=document.createElement('h2');title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) ${type==='J'?'JOIN':'BASE'}`;box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,type==='J'?joinCode(t):baseCode(t));let p=document.createElement('p');p.className='compact';p.textContent=type==='J'?'Show only to assigned players.':'Post physically at this team base; a copy can be scanned anywhere.';box.append(p)}
+function hostDraw(type,t,target){if(!HOST_MODE||!h)return;let box=$(target);if(!box)return;box.replaceChildren();let title=document.createElement('h2');title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) ${type==='J'?'JOIN':'BASE'}`;box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,type==='J'?joinCode(t):baseCode(t));let p=document.createElement('p');p.className='compact';p.textContent=type==='J'?'Show only to assigned players.':'Post physically at this team base; a copy can be scanned anywhere.';box.append(p)}
 function renderArtifactCheckboxes(){
+ if(!HOST_MODE)return;
  const box=$('artifactList');if(!box||!h)return;
  box.replaceChildren();
  GUN_ORDER.forEach(gunId=>{
@@ -168,20 +170,67 @@ function renderArtifactCheckboxes(){
   box.appendChild(label);
  });
 }
-function renderSetup(){$('setup').classList.toggle('hidden',!!s);$('play').classList.toggle('hidden',!s);if(s)return;let v=h&&view==='choice'?'hostPanel':view;for(let id of ['choice','hostForm','hostPanel','joinPanel','preview'])$(id).classList.toggle('hidden',id!==v);if(v==='hostPanel'&&h){$('hostInfo').textContent=`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;if(!$('hostQR').childNodes.length)hostDraw('J','A','hostQR');renderArtifactCheckboxes();const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers}if(v==='preview'&&pending){$('previewTeam').textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;$('previewRules').textContent=ruleText(pending.rules)}}
-function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';document.body.classList.toggle('returning',ret);document.body.classList.toggle('mist',dead);$('playarea').classList.toggle('teamB',s.team==='B');$('identity').textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;let bar=$('bar');bar.replaceChildren();s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;if(tag.status==='OFFERED'&&offered()&&s.rules.medic!=='none'){el.classList.add('tappable');el.onclick=()=>scan('play','heal')}bar.append(el)});bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));$('actions').className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');$('hit').disabled=phase!=='ACTIVE';$('scan').disabled=phase!=='ACTIVE'&&!ret;
- const scanImg=$('scanImg');if(scanImg){if(ret)scanImg.src='./baserespawn.jpg';else if(s.rules.medic==='none')scanImg.src='./Reapersrewards1.jpg';else scanImg.src='./qrscanbu.jpg'}
- let st=$('stage');st.replaceChildren();offerSlot=-1;offerShown='';
+function renderSetup(){
+ const st=$('setup'),pl=$('play');
+ if(st)st.classList.toggle('hidden',!!s);
+ if(pl)pl.classList.toggle('hidden',!s);
+ if(s)return;
+ let v=(HOST_MODE&&h&&view==='choice')?'hostPanel':view;
+ const ids=['choice','hostForm','hostPanel','joinPanel','preview'];
+ ids.forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
+ if(v==='hostPanel'&&h){
+  const hi=$('hostInfo');if(hi)hi.textContent=`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;
+  const hq=$('hostQR');if(hq&&!hq.childNodes.length)hostDraw('J','A','hostQR');
+  renderArtifactCheckboxes();
+  const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers;
+ }
+ if(v==='preview'&&pending){
+  const pt=$('previewTeam');if(pt)pt.textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;
+  const pr=$('previewRules');if(pr)pr.textContent=ruleText(pending.rules);
+ }
+}
+function renderPlay(){
+ if(!s)return;
+ let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';
+ document.body.classList.toggle('returning',ret);
+ document.body.classList.toggle('mist',dead);
+ const pa=$('playarea');if(pa)pa.classList.toggle('teamB',s.team==='B');
+ const idEl=$('identity');if(idEl)idEl.textContent=`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;
+ const bar=$('bar');
+ if(bar){
+  bar.replaceChildren();
+  s.tags.forEach((tag,i)=>{
+   let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;
+   if(tag.status==='OFFERED'&&offered()&&s.rules.medic!=='none'){el.classList.add('tappable');el.onclick=()=>scan('play','heal')}
+   bar.append(el);
+  });
+  bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));
+ }
+ const act=$('actions');if(act)act.className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');
+ const hitBtn=$('hit');if(hitBtn)hitBtn.disabled=phase!=='ACTIVE';
+ const scanBtn=$('scan');if(scanBtn)scanBtn.disabled=phase!=='ACTIVE'&&!ret;
+ const scanImg=$('scanImg');
+ if(scanImg){
+  if(ret)scanImg.src='./baserespawn.jpg';
+  else if(s.rules.medic==='none')scanImg.src='./Reapersrewards1.jpg';
+  else scanImg.src='./qrscanbu.jpg';
+ }
+ const st=$('stage');if(!st)return;
+ st.replaceChildren();offerSlot=-1;offerShown='';
  if(s.outbound&&s.outbound.type==='K'){
   let head=document.createElement('h2');head.textContent='THANKS';st.append(head);
-  let timer=document.createElement('p');timer.className='timer';let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);
+  let timer=document.createElement('p');timer.className='timer';
+  let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));
+  timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);
   let box=document.createElement('div');box.className='qr offerqr';st.append(box);
   makeQR(box,thanksCode(s.outbound.offer,s.outbound.medicId,s.name,s.outbound.deadline));
   let p=document.createElement('p');p.className='compact';p.textContent='Show this to '+s.outbound.medicName+' so they get credit.';st.append(p);
   let b=document.createElement('button');b.className='alt';b.textContent='CLOSE';b.onclick=()=>{edit(x=>{x.outbound=null})};st.append(b);
  }else if(s.outbound){
   let head=document.createElement('h2');head.textContent=s.outbound.type==='T'?'TAGS TAKEN':'HEALED';st.append(head);
-  let timer=document.createElement('p');timer.className='timer';let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);
+  let timer=document.createElement('p');timer.className='timer';
+  let t=Math.max(0,Math.ceil((s.outbound.deadline-time())/1000));
+  timer.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`;st.append(timer);
   let box=document.createElement('div');box.className='qr offerqr';st.append(box);
   makeQR(box,returnCode(s.outbound.type,{id:s.id,name:s.name},{id:s.outbound.offer,deadline:s.outbound.deadline}));
   let p=document.createElement('p');p.className='compact';p.textContent='Show this to '+s.outbound.victimName+'. They scan it to confirm.';st.append(p);
@@ -213,15 +262,29 @@ function renderPlay(){if(!s)return;let phase=s.phase,ret=phase==='RETURN',dead=p
   image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';panel.append(word)};
   panel.append(image);st.append(panel);
  }
- let groups=new Map();for(let w of s.wins){let g=groups.get(w.owner)||{name:w.name,items:[]};g.items.push(w);groups.set(w.owner,g)}
- let wall=$('trophies');wall.replaceChildren();if(!groups.size)wall.textContent='None yet';
- for(let g of groups.values()){let b=document.createElement('button');b.className='tile';let img=document.createElement('img');img.src='./dogtag.svg';img.alt='';img.style.width='22px';img.style.height='22px';img.style.verticalAlign='middle';let strong=document.createElement('strong');strong.textContent=' '+g.items.length;let label=document.createElement('span');label.textContent=g.name.slice(0,4).toUpperCase();b.append(img,strong,label);
-  b.onclick=()=>{const dlg=$('dialog');dlg.classList.remove('armoury');let area=$('dialogText');area.replaceChildren();let hh=document.createElement('h2');hh.textContent=g.name;area.append(hh);for(let w of [...g.items].reverse()){let p=document.createElement('p');p.textContent=`${w.team}${w.n} · ${w.offer.slice(0,10)} · ${new Date(w.capturedAt).toLocaleString()}`;area.append(p)}dlg.showModal()};
-  wall.append(b)}
- $('medals').textContent=s.medics.length?'💉 '+s.medics.length+' medic assists':'';
- $('history').replaceChildren();for(let e of [...s.events].reverse()){let li=document.createElement('li');li.textContent=e.at+': '+e.message;$('history').append(li)}
- $('pendingBox').classList.toggle('hidden',!s.medPending);$('pendingInfo').textContent=s.medPending?`Waiting for fresh second scan of ${s.medPending.name} before ${new Date(s.medPending.deadline).toLocaleString()}`:'';
- $('hostTools').classList.toggle('hidden',!h||h.gid!==s.gid)}
+ let groups=new Map();
+ for(let w of s.wins){let g=groups.get(w.owner)||{name:w.name,items:[]};g.items.push(w);groups.set(w.owner,g)}
+ let wall=$('trophies');
+ if(wall){
+  wall.replaceChildren();
+  if(!groups.size)wall.textContent='None yet';
+  for(let g of groups.values()){
+   let b=document.createElement('button');b.className='tile';
+   let img=document.createElement('img');img.src='./dogtag.svg';img.alt='';img.style.width='22px';img.style.height='22px';img.style.verticalAlign='middle';
+   let strong=document.createElement('strong');strong.textContent=' '+g.items.length;
+   let label=document.createElement('span');label.textContent=g.name.slice(0,4).toUpperCase();
+   b.append(img,strong,label);
+   b.onclick=()=>{const dlg=$('dialog');dlg.classList.remove('armoury');let area=$('dialogText');area.replaceChildren();let hh=document.createElement('h2');hh.textContent=g.name;area.append(hh);for(let w of [...g.items].reverse()){let p=document.createElement('p');p.textContent=`${w.team}${w.n} · ${w.offer.slice(0,10)} · ${new Date(w.capturedAt).toLocaleString()}`;area.append(p)}dlg.showModal()};
+   wall.append(b);
+  }
+ }
+ const medals=$('medals');if(medals)medals.textContent=s.medics.length?'💉 '+s.medics.length+' medic assists':'';
+ const hist=$('history');
+ if(hist){hist.replaceChildren();for(let e of [...s.events].reverse()){let li=document.createElement('li');li.textContent=e.at+': '+e.message;hist.append(li)}}
+ const pb=$('pendingBox');if(pb)pb.classList.toggle('hidden',!s.medPending);
+ const pi=$('pendingInfo');if(pi)pi.textContent=s.medPending?`Waiting for fresh second scan of ${s.medPending.name} before ${new Date(s.medPending.deadline).toLocaleString()}`:'';
+ const ht=$('hostTools');if(ht)ht.classList.toggle('hidden',!HOST_MODE||!h||h.gid!==s.gid);
+}
 function render(){renderSetup();renderPlay()}
 /* --- ARMOURY --- */
 function renderArmoury(){
@@ -280,8 +343,9 @@ function showArmouryDetail(gunId){
 }
 /* --- PRINT --- */
 function showPrintOverlay(){
+ if(!HOST_MODE)return;
  if(!h||!h.artifacts||!h.artifacts.length){note('Select artifacts first');return}
- const area=$('printArea');area.replaceChildren();
+ const area=$('printArea');if(!area)return;area.replaceChildren();
  h.artifacts.forEach(gunId=>{
   const gun=GUNS[gunId];
   const artifactId=(h.artifactIds&&h.artifactIds[gunId])||hex().slice(0,16);
@@ -292,29 +356,49 @@ function showPrintOverlay(){
   const title=document.createElement('h3');title.textContent=gun.name+' | '+h.game;wrapper.appendChild(title);
   const qbox=document.createElement('div');qbox.className='qr';wrapper.appendChild(qbox);
   makeQR(qbox,artifactCode(gunId,artifactId),200);
-  const code=document.createElement('p');code.className='code';code.textContent='MU4 · '+artifactId;wrapper.appendChild(code);
+  const codeEl=document.createElement('p');codeEl.className='code';codeEl.textContent='MU4 · '+artifactId;wrapper.appendChild(codeEl);
   area.appendChild(wrapper);
  });
  saveHost(h);
- $('printOverlay').classList.remove('hidden');
+ const po=$('printOverlay');if(po)po.classList.remove('hidden');
 }
 /* --- SCAN --- */
 async function stopScan(){let item=scanner;scanner=null;$('camera').classList.add('hidden');$('joinCamera').classList.add('hidden');if(item){try{await item.stop()}catch(e){}try{item.clear()}catch(e){}}busy=false}
-async function scan(kind,mode){currentScanMode=mode||'normal';reconcile();if(kind==='play'&&!s)return;await stopScan();if(typeof Html5Qrcode!=='function'){note('Scanner library unavailable. Load app once online.');return}let joinMode=kind==='join';let camBox=$(joinMode?'joinCamera':'camera');camBox.classList.remove('hidden');let lbl=camBox.querySelector('h2.scanLabel');if(!lbl){lbl=document.createElement('h2');lbl.className='scanLabel';camBox.insertBefore(lbl,camBox.firstChild)}lbl.textContent=joinMode?'SCAN HOST QR':(mode==='tag'?'SCAN TAGS TAKEN':(mode==='heal'?'SCAN HEALED':'SCAN QR'));try{let item=new Html5Qrcode(joinMode?'joinReader':'reader');scanner=item;await item.start({facingMode:'environment'},{fps:15,qrbox:{width:200,height:200}},async text=>{if(busy)return;busy=true;await stopScan();try{joinMode?getJoin(text):accept(text)}catch(e){note(e.message)}},()=>{})}catch(e){note('Camera error: '+e.message);await stopScan()}}
+async function scan(kind,mode){currentScanMode=mode||'normal';reconcile();if(kind==='play'&&!s)return;await stopScan();if(typeof Html5Qrcode!=='function'){note('Scanner library unavailable. Load app once online.');return}let joinMode=kind==='join';let camBox=$(joinMode?'joinCamera':'camera');camBox.classList.remove('hidden');let lbl=camBox.querySelector('h2.scanLabel');if(!lbl){lbl=document.createElement('h2');lbl.className='scanLabel';camBox.insertBefore(lbl,camBox.firstChild)}lbl.textContent=joinMode?'SCAN HOST QR':(mode==='tag'?'SCAN TAGS TAKEN':(mode==='heal'?'SCAN HEALED':'SCAN QR'));try{let item=new Html5Qrcode(joinMode?'joinReader':'reader');scanner=item;await item.start({facingMode:'environment'},{fps:10,qrbox:{width:200,height:200}},async text=>{if(busy)return;busy=true;await stopScan();try{joinMode?getJoin(text):accept(text)}catch(e){note(e.message)}},()=>{})}catch(e){note('Camera error: '+((e&&e.message)?e.message:String(e)||'unknown'));await stopScan()}}
 function download(){let blob=new Blob([JSON.stringify(s,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`mash-unit-${s.game}-${s.team}-${s.id.slice(0,6)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}
-/* --- EVENTS --- */
-$('hostOpen').onclick=()=>{view='hostForm';render()};$('hostBack').onclick=()=>{view='choice';render()};$('create').onclick=hostCreate;$('joinOpen').onclick=()=>{view='joinPanel';render()};$('joinBack').onclick=()=>{view=h?'hostPanel':'choice';render()};$('joinScan').onclick=()=>scan('join');$('joinStop').onclick=stopScan;$('previewBack').onclick=()=>{pending=null;view=h?'hostPanel':'joinPanel';render()};$('confirmJoin').onclick=join;
-for(let [id,type,t,target] of [['hostJA','J','A','hostQR'],['hostJB','J','B','hostQR'],['hostBA','B','A','hostQR'],['hostBB','B','B','hostQR'],['playJA','J','A','playHostQR'],['playJB','J','B','playHostQR'],['playBA','B','A','playHostQR'],['playBB','B','B','playHostQR']])$(id).onclick=()=>hostDraw(type,t,target);
-$('selfA').onclick=()=>{try{getJoin(joinCode('A'))}catch(e){note(e.message)}};$('selfB').onclick=()=>{try{getJoin(joinCode('B'))}catch(e){note(e.message)}};
-$('eraseHost').onclick=()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone? Other phones will not be changed.')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}};
-$('hit').onclick=hit;$('scan').onclick=()=>scan('play');$('stop').onclick=stopScan;$('cancelMedic').onclick=cancelMedic;$('export').onclick=()=>{if(s)download()};$('reset').onclick=()=>{if(!s||!confirm("Erase this phone's player game and personal history?"))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');view=h?'hostPanel':'choice';render();note('Player reset.')};$('closeDialog').onclick=()=>$('dialog').close();
-$('unlockCareers').onchange=e=>{if(!h)return;h.unlockCareers=e.target.checked;saveHost(h);note(e.target.checked?'Career unlock ON — dormant collections will be recovered':'Career unlock OFF')};
-$('genArtifacts').onclick=()=>{if(!h)return;const checked=[];document.querySelectorAll('#artifactList input:checked').forEach(cb=>checked.push(cb.value));if(checked.length===0){note('Tick at least one artifact');return}h.artifacts=checked;if(!h.artifactIds)h.artifactIds={};checked.forEach(gunId=>{if(!h.artifactIds[gunId])h.artifactIds[gunId]=hex().slice(0,16)});saveHost(h);showPrintOverlay()};
-$('printClose').onclick=()=>$('printOverlay').classList.add('hidden');
-$('printBtn').onclick=()=>{try{window.print()}catch(e){}};
+/* --- COMMON BINDINGS --- */
+$('joinOpen').onclick=()=>{view='joinPanel';render()};
+$('joinBack').onclick=()=>{view=(HOST_MODE&&h)?'hostPanel':'choice';render()};
+$('joinScan').onclick=()=>scan('join');
+$('joinStop').onclick=stopScan;
+$('previewBack').onclick=()=>{pending=null;view=(HOST_MODE&&h)?'hostPanel':'joinPanel';render()};
+$('confirmJoin').onclick=join;
+$('hit').onclick=hit;
+$('scan').onclick=()=>scan('play');
+$('stop').onclick=stopScan;
+$('cancelMedic').onclick=cancelMedic;
+$('export').onclick=()=>{if(s)download()};
+$('reset').onclick=()=>{if(!s||!confirm("Erase this phone's player game and personal history?"))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');view=(HOST_MODE&&h)?'hostPanel':'choice';render();note('Player reset.')};
+$('closeDialog').onclick=()=>$('dialog').close();
 $('armouryOpen').onclick=()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')};
 $('armouryPlayBtn').onclick=()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')};
 $('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
+/* --- HOST-ONLY BINDINGS --- */
+if(HOST_MODE){
+ $('hostOpen').onclick=()=>{view='hostForm';render()};
+ $('hostBack').onclick=()=>{view='choice';render()};
+ $('create').onclick=hostCreate;
+ for(let [id,type,t,target] of [['hostJA','J','A','hostQR'],['hostJB','J','B','hostQR'],['hostBA','B','A','hostQR'],['hostBB','B','B','hostQR'],['playJA','J','A','playHostQR'],['playJB','J','B','playHostQR'],['playBA','B','A','playHostQR'],['playBB','B','B','playHostQR']]){
+  const el=$(id);if(el)el.onclick=()=>hostDraw(type,t,target);
+ }
+ $('selfA').onclick=()=>{try{getJoin(joinCode('A'))}catch(e){note(e.message)}};
+ $('selfB').onclick=()=>{try{getJoin(joinCode('B'))}catch(e){note(e.message)}};
+ $('eraseHost').onclick=()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone? Other phones will not be changed.')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}};
+ $('unlockCareers').onchange=e=>{if(!h)return;h.unlockCareers=e.target.checked;saveHost(h);note(e.target.checked?'Career unlock ON — dormant collections will be recovered':'Career unlock OFF')};
+ $('genArtifacts').onclick=()=>{if(!h)return;const checked=[];document.querySelectorAll('#artifactList input:checked').forEach(cb=>checked.push(cb.value));if(checked.length===0){note('Tick at least one artifact');return}h.artifacts=checked;if(!h.artifactIds)h.artifactIds={};checked.forEach(gunId=>{if(!h.artifactIds[gunId])h.artifactIds[gunId]=hex().slice(0,16)});saveHost(h);showPrintOverlay()};
+ const pc=$('printClose');if(pc)pc.onclick=()=>$('printOverlay').classList.add('hidden');
+ const pb=$('printBtn');if(pb)pb.onclick=()=>{try{window.print()}catch(e){}};
+}
 /* --- MAP --- */
 (function(){
  let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),markersBox=$('mapMarkers'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus');
@@ -377,8 +461,10 @@ $('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
 })();
 /* --- INIT --- */
 (function(){const ba=$('baseA'),bb=$('baseB');if(!ba||!bb)return;const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia'})();
-for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;$('lives').append(x)}
-try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!ruleOK(x.rules))throw Error('host');h=x;view='hostPanel'}}catch(e){note('Saved host game unreadable. Do not clear browser storage.')}
+(function(){const lv=$('lives');if(!lv)return;for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;lv.append(x)}})();
+if(HOST_MODE){
+ try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!ruleOK(x.rules))throw Error('host');h=x;view='hostPanel'}}catch(e){note('Saved host game unreadable. Do not clear browser storage.')}
+}
 try{let raw=localStorage.getItem(KEY);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!idOK(x.id)||!ruleOK(x.rules)||!Array.isArray(x.tags)||x.tags.length!==(x.rules.lives==='U'?1:Number(x.rules.lives))||!['ACTIVE','OFFERED','RETURN','ELIMINATED'].includes(x.phase)||!Array.isArray(x.events)||!Array.isArray(x.wins)||!Array.isArray(x.medics)||!Array.isArray(x.seen))throw Error('player');s=x}}catch(e){note('Saved player data unreadable. Do not clear browser storage.')}
 loadCareer();careerPurgeIfExpired();
 render();reconcile();setInterval(()=>{reconcile();secondsLeft();refreshOffer();if(s?.medPending&&time()>=s.medPending.deadline)edit(x=>{x.medPending=null;record(x,'Medic attempt expired')})},1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer()}});if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>note('Offline cache registration failed. Reload online before offline test.'));
