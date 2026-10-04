@@ -20,6 +20,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 #mapImage{display:block;width:100%;height:auto;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
 #mapGridLayer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;opacity:0.85;background-repeat:repeat;display:none}
 #mapGridLayer.on{display:block}
+#mapBoundarySvg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4}
 #mapMarkers{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5}
 .mapMarker{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);transform-origin:center center}
 .mapMarkerDot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(0,0,0,0.7)}
@@ -51,6 +52,33 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .armouryCard.locked{opacity:0.9}
 .armouryQ{font-size:48px;font-weight:900;color:#000;line-height:1;margin-top:8px;opacity:0.55}
 .armouryTier{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;text-align:center;margin-top:6px;text-shadow:0 1px 3px rgba(0,0,0,0.7)}
+.armouryOutlastSlot{grid-column:1 / -1;display:flex;flex-direction:column;align-items:stretch}
+.armouryOutlastCard{background:#3d6b57;border:3px solid rgba(0,0,0,0.5);border-radius:10px;padding:14px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:14px;box-shadow:0 3px 6px rgba(0,0,0,0.4)}
+.armouryOutlastCard .icon{font-size:44px;line-height:1}
+.armouryOutlastCard .num{font-size:40px;font-weight:900;color:#d4af37;line-height:1;text-shadow:0 2px 4px rgba(0,0,0,0.5)}
+.armouryOutlastCard .lbl{font-size:14px;font-weight:800;color:#000;letter-spacing:1px}
+.armouryOutlastTier{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;text-align:center;margin-top:6px;color:#d4af37;text-shadow:0 1px 3px rgba(0,0,0,0.7)}
+#printOverlay{position:fixed;inset:0;background:#000;color:#fff;z-index:10500;overflow-y:auto;padding:20px}
+#printOverlay h2{color:#d4af37;font-size:20px;text-align:center;margin:0 0 12px 0}
+#printClose{position:fixed;top:16px;right:16px;z-index:10600;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.85);color:#fff;font-size:22px;font-weight:900;border:2px solid #fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.printCard{background:#3d6b57;padding:16px;margin:16px 0;border-radius:12px;text-align:center;border:2px solid #354d40}
+.printCard h3{margin:8px 0;font-size:18px;color:#f0f6ef}
+.printCard img{display:block;margin:8px auto;border-radius:6px;max-height:120px;max-width:80%}
+.printCard .qr{margin:8px auto}
+.printCard .code{font-size:11px;color:#c5d3cb;margin:6px 0 0 0;font-family:monospace;word-break:break-all}
+#printBtn{margin:20px 0;width:100%}
+.hostArtifacts{margin-top:12px;padding-top:12px;border-top:1px solid #354d40}
+.hostArtifacts label{display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:600}
+.hostArtifacts input[type=checkbox]{width:auto;margin:0}
+@media print{
+  body>*:not(#printOverlay){display:none!important}
+  #printOverlay{position:static;background:#fff;color:#000;padding:0;overflow:visible}
+  #printOverlay h2{color:#000}
+  #printClose,#printBtn{display:none!important}
+  .printCard{page-break-inside:avoid;background:#fff;color:#000;border:2px solid #000}
+  .printCard h3{color:#000}
+  .printCard .code{color:#000}
+}
 </style></head><body><main>
 <header class="mash-header">
   <h1 class="mash-title">M<span class="sep">▪︎</span>A<span class="sep">▪︎</span>S<span class="sep">▪︎</span>H <span class="unit">unit</span></h1>
@@ -119,6 +147,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <div id="mapInner">
       <img id="mapImage" src="./map1.jpeg" alt="Field map">
       <div id="mapGridLayer"></div>
+      <svg id="mapBoundarySvg" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="mapMarkers"></div>
       <div id="mapBlueDot"></div>
       <div id="mapYouLabel">You</div>
