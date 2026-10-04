@@ -21,7 +21,7 @@ const DEFAULT_ANCHORS={
  'b':{lat:-37.30716,lng:174.690905,xPct:0.7685248202114145,yPct:0.2495413444810016,name:'Bonfire'}
 };
 const GUNS={
- 'ak47':{name:'AK-47',tier:'Veteran',img:'./armoury/ak47b-1.png'},
+ 'ak47':{name:'AK-47',tier:'Veteran',img:'./armoury/Ak47b-1.png'},
  'ames85':{name:'Ames 85',tier:'Service',img:'./armoury/Ames85.png'},
  'deagle':{name:'Desert Eagle',tier:'Elite',img:'./armoury/de-1.png'},
  'g36c':{name:'G36C',tier:'Prototype',img:'./armoury/G36c1.png'},
