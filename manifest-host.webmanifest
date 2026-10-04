@@ -1,0 +1,11 @@
+{
+  "name": "M.A.S.H. GameMaster",
+  "short_name": "GameMaster",
+  "description": "GameMaster companion for M.A.S.H. Unit",
+  "start_url": "./6060gamemaster.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1c17",
+  "theme_color": "#10261e",
+  "icons": [{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+}
