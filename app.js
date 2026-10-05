@@ -63,7 +63,12 @@ function playerHostNow(){if(!s?.outlast?.offset)return time();return time()+s.ou
 function currentRadius(o,hostNow){if(!o)return null;if(hostNow<o.startEpoch)return o.startRadius;const elapsed=hostNow-o.startEpoch;const steps=Math.floor(elapsed/o.intervalMs);const r=o.startRadius-steps*o.step;return Math.max(o.endRadius,r)}
 /* --- QR CODES --- */
 const code=(type,...values)=>JSON.stringify([V,type,...values]);
-const joinCode=t=>{if(h.mode==='outlast'&&h.outlast){return code('J',h.gid,h.game,1,120,'none',h.rules.a,h.rules.b,t,'outlast',h.outlast.startEpoch,time(),h.outlast.targetLat,h.outlast.targetLng,h.outlast.startRadius,OUTLAST_END_RADIUS,h.outlast.step,h.outlast.intervalMin*60000)}return code('J',h.gid,h.game,h.rules.lives,h.rules.seconds,h.rules.medic,h.rules.a,h.rules.b,t)};
+const joinCode=t=>{
+ if(h.mode==='outlast'&&h.outlast){
+  return code('J',h.gid,h.game,1,120,'none','S','T','S','outlast',h.outlast.startEpoch,time(),h.outlast.targetLat,h.outlast.targetLng,h.outlast.startRadius,OUTLAST_END_RADIUS,h.outlast.step,h.outlast.intervalMin*60000);
+ }
+ return code('J',h.gid,h.game,h.rules.lives,h.rules.seconds,h.rules.medic,h.rules.a,h.rules.b,t);
+};
 const baseCode=t=>{const b=BASES[h.baseA&&t==='A'?h.baseA:h.baseB]||{};return code('B',h.gid,t,Math.round((b.lat||0)*1e7),Math.round((b.lng||0)*1e7))};
 const artifactCode=(gunId,artifactId)=>code('A',h.gid,h.game,gunId,artifactId);
 const winnerCode=()=>code('W',h.gid,time());
@@ -76,24 +81,20 @@ function getJoin(raw){
  if(a[1]!=='J')throw Error('Not a valid team JOIN QR');
  if(s)throw Error('This phone already joined a game; reset explicitly to join another');
  if(h&&h.gid!==a[2])throw Error('Host setup belongs to another game');
- // OUTLAST variant
  if(a.length>=19&&a[10]==='outlast'){
   const gid=a[2],game=a[3];
   if(!idOK(gid)||typeof game!=='string'||!/^[A-Z0-9_-]{3,12}$/.test(game))throw Error('Invalid game');
   const startEpoch=a[11],hostNow=a[12],targetLat=a[13],targetLng=a[14],startRadius=a[15],endRadius=a[16],step=a[17],intervalMs=a[18];
   if(!Number.isFinite(startEpoch)||!Number.isFinite(hostNow)||!Number.isFinite(targetLat)||!Number.isFinite(targetLng))throw Error('Invalid OUTLAST data');
   if(!Number.isFinite(startRadius)||!Number.isFinite(endRadius)||!Number.isFinite(step)||!Number.isFinite(intervalMs))throw Error('Invalid OUTLAST schedule');
-  if(Date.now()+ (hostNow-Date.now()) > startEpoch + 60000){} // no-op
   const playerNow=time();
   const offset=hostNow-playerNow;
   if(playerNow+offset>startEpoch+120000)throw Error('This game already started. Ask host for a new one.');
-  const rules={lives:'1',seconds:120,medic:'none',a:a[7],b:a[8]};
-  if(!labelOK(rules.a)||!labelOK(rules.b)||rules.a===rules.b)throw Error('Invalid team labels');
-  pending={gid,game,rules,team:a[9],mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset}};
+  const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T'};
+  pending={gid,game,rules,team:'S',mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset}};
   view='preview';render();note('OUTLAST game. Enter your callsign.');
   return;
  }
- // Standard variant
  if(a.length!==10||!idOK(a[2])||typeof a[3]!=='string'||!/^[A-Z0-9_-]{3,12}$/.test(a[3])||!['A','B'].includes(a[9]))throw Error('Not a valid team JOIN QR');
  let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8]};
  if(!ruleOK(rules))throw Error('Invalid game settings');
@@ -104,11 +105,9 @@ function hostCreate(){
  if(!HOST_MODE)return;
  if(h||s){note('Host/player game already exists. Reset explicitly before making a new one.');return}
  let game=$('game').value.trim().toUpperCase();
- let a=$('labelA').value.trim().toUpperCase(),b=$('labelB').value.trim().toUpperCase();
  if(hostMode==='outlast'){
   if(!hostTarget){note('Set target on map first.');return}
   if(!/^[A-Z0-9_-]{3,12}$/.test(game)){note('Game: 3–12 letters/numbers.');return}
-  if(!labelOK(a)||!labelOK(b)||a===b){note('Team labels 1–12 letters/numbers/dots, distinct.');return}
   const startRadius=Number($('olStartR').value),step=Number($('olStep').value),intervalMin=Number($('olInterval').value),startTimeStr=$('olStartTime').value;
   if(!Number.isFinite(startRadius)||startRadius<20||startRadius>500){note('Start radius 20–500m');return}
   if(!Number.isFinite(step)||step<5||step>100){note('Step 5–100m');return}
@@ -119,13 +118,13 @@ function hostCreate(){
   const st=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0,0);
   if(st.getTime()<now.getTime())st.setDate(st.getDate()+1);
   const outlast={targetLat:hostTarget.lat,targetLng:hostTarget.lng,startRadius,endRadius:OUTLAST_END_RADIUS,step,intervalMin,startEpoch:st.getTime()};
-  const rules={lives:'1',seconds:120,medic:'none',a,b};
+  const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T'};
   if(saveHost({version:4,gid:hex(),game,rules,baseA:'',baseB:'',mode:'outlast',outlast,created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
-   view='hostPanel';render();note('OUTLAST game created. Show JOIN codes.');
+   view='hostPanel';render();note('OUTLAST game created. Show JOIN QR to players.');
   }
   return;
  }
- // Standard
+ let a=$('labelA').value.trim().toUpperCase(),b=$('labelB').value.trim().toUpperCase();
  const rules={lives:$('lives').value,seconds:Number($('seconds').value),medic:$('medic').value,a,b};
  const baseA=$('baseA').value,baseB=$('baseB').value;
  if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
@@ -144,7 +143,7 @@ function join(){
   phase:'ACTIVE',offer:null,outbound:null,wins:[],medics:[],seen:[],medPending:null,events:[],
   baseA:h?h.baseA:'',baseB:h?h.baseB:''};
  if(p.mode==='outlast'&&p.outlast)x.outlast=p.outlast;
- record(x,`Joined ${p.game} [${p.mode||'standard'}], ${p.team==='A'?p.rules.a:p.rules.b} (${p.team}); ${p.mode==='outlast'?outlastRuleText(p.outlast):ruleText(p.rules)}`);
+ record(x,`Joined ${p.game} [${p.mode||'standard'}], ${p.mode==='outlast'?'OUTLAST':(p.team==='A'?p.rules.a:p.rules.b)}; ${p.mode==='outlast'?outlastRuleText(p.outlast):ruleText(p.rules)}`);
  if(persist(x)){
   pending=null;
   careerPurgeIfExpired();
@@ -163,7 +162,7 @@ function reconcile(){
  if(s?.outbound&&time()>=s.outbound.deadline){edit(x=>{x.outbound=null})}
 }
 function hit(){reconcile();if(s?.phase!=='ACTIVE')return;let n=s.tags.findIndex(t=>t.status==='LIVE')+1;if(n<1)return;let at=time();edit(x=>{x.tags[n-1].status='OFFERED';x.phase='OFFERED';x.offer={n,id:hex(),at,deadline:at+x.rules.seconds*1000};record(x,`Life ${n} offered`)});note('Show your dog tags. Bleedout timer is running.')}
-function offerData(a){if(a.length!==16||!idOK(a[2])||!idOK(a[9])||!idOK(a[12])||!['A','B'].includes(a[8])||!nameOK(a[10])||!Number.isInteger(a[11])||!Number.isSafeInteger(a[13])||!Number.isSafeInteger(a[14])||!Number.isSafeInteger(a[15]))throw Error('Malformed offer QR');let r={lives:String(a[3]),seconds:a[4],medic:a[5],a:a[6],b:a[7]};if(!ruleOK(r)||a[14]!==a[13]+r.seconds*1000||a[11]<1||a[11]>(r.lives==='U'?1:Number(r.lives)))throw Error('Invalid offer data');if(a[2]!==s.gid)throw Error('Different game ID');if(JSON.stringify(r)!==JSON.stringify(s.rules))throw Error('Different rules');if(a[9]===s.id)throw Error('Cannot scan own tags');if(time()>=a[14])throw Error('Tags expired');if(a[13]>time()+60000)throw Error('Phone clocks disagree');return {team:a[8],owner:a[9],name:a[10],n:a[11],offer:a[12],at:a[13],deadline:a[14],challenge:a[15]}}
+function offerData(a){if(a.length!==16||!idOK(a[2])||!idOK(a[9])||!idOK(a[12])||!['A','B','S'].includes(a[8])||!nameOK(a[10])||!Number.isInteger(a[11])||!Number.isSafeInteger(a[13])||!Number.isSafeInteger(a[14])||!Number.isSafeInteger(a[15]))throw Error('Malformed offer QR');let r={lives:String(a[3]),seconds:a[4],medic:a[5],a:a[6],b:a[7]};if(!ruleOK(r)||a[14]!==a[13]+r.seconds*1000||a[11]<1||a[11]>(r.lives==='U'?1:Number(r.lives)))throw Error('Invalid offer data');if(a[2]!==s.gid)throw Error('Different game ID');if(JSON.stringify(r)!==JSON.stringify(s.rules))throw Error('Different rules');if(a[9]===s.id)throw Error('Cannot scan own tags');if(time()>=a[14])throw Error('Tags expired');if(a[13]>time()+60000)throw Error('Phone clocks disagree');return {team:a[8],owner:a[9],name:a[10],n:a[11],offer:a[12],at:a[13],deadline:a[14],challenge:a[15]}}
 function acceptReturn(a){
  if(!offered())throw Error('You have no active offer');
  if(a.length!==7)throw Error('Malformed return QR');
@@ -238,22 +237,20 @@ function accept(raw){
  if(a[1]!=='O')throw Error('Expected a player offer QR');
  if(s.phase!=='ACTIVE')throw Error('Cannot capture or medic while hit, out or eliminated');
  let o=offerData(a);
- if(o.team!==s.team){
+ // In OUTLAST, everyone is a Reaper. Skip team check.
+ const isCapture = s.mode==='outlast' || o.team !== s.team;
+ if(isCapture){
   if(s.seen.includes(o.offer))throw Error('Already grabbed this offer on this phone');
-  edit(x=>{x.seen.push(o.offer);x.wins.push({...o,capturedAt:time()});if(s.mode!=='outlast'){x.outbound={type:'T',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:time()+180000}}record(x,`Grabbed tags from ${o.name}`)});
-  if(s.mode==='outlast'){
-   note('Tags recorded. No receipt in OUTLAST.');
-  }else{
-   note('Show TAGS TAKEN to '+o.name+'. They scan it to confirm.');
-  }
+  edit(x=>{x.seen.push(o.offer);x.wins.push({...o,capturedAt:time()});if(x.mode!=='outlast'){x.outbound={type:'T',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:time()+180000}}record(x,`Grabbed tags from ${o.name}`)});
+  if(s.mode==='outlast'){note('Tags recorded. No receipt in OUTLAST.')}
+  else{note('Show TAGS TAKEN to '+o.name+'. They scan it to confirm.')}
   return;
  }
- if(s.mode==='outlast')throw Error('No medics in OUTLAST');
  if(s.rules.medic==='none')throw Error('No medics in this game');
  if(s.medics.some(m=>m.offer===o.offer))throw Error('You already healed this offer');
  if(s.rules.medic==='one'){
   edit(x=>{x.outbound={type:'H',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:time()+180000};record(x,`Heal offered to ${o.name}`)});
-  note('Show HEALED to '+o.name+'. Then press their yellow life bar.');
+  note('Show HEALED to '+o.name+'. Then press their yellow life bar. Victim confirms by scanning back.');
   return;
  }
  let m=s.medPending;
@@ -267,7 +264,10 @@ function accept(raw){
 function cancelMedic(){if(!s?.medPending)return;edit(x=>{x.medPending=null;record(x,'Medic attempt cancelled')});note('Medic attempt cleared.')}
 function secondsLeft(){let el=$('timer');if(!el||!offered())return;let t=Math.max(0,Math.ceil((s.offer.deadline-time())/1000));el.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} remaining`}
 function refreshOffer(){if(!offered())return;let slot=Math.floor(time()/8000);if(slot===offerSlot)return;offerSlot=slot;let node=$('offerQR');if(node){let text=offerCode();offerShown=text;makeQR(node,text,216)}}
-function hostDraw(type,t,target){if(!HOST_MODE||!h)return;let box=$(target);if(!box)return;box.replaceChildren();let title=document.createElement('h2');title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) ${type==='J'?'JOIN':'BASE'}`;box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,type==='J'?joinCode(t):baseCode(t));let p=document.createElement('p');p.className='compact';p.textContent=type==='J'?'Show only to assigned players.':'Post at base.';box.append(p)}
+function hostDraw(type,t,target){if(!HOST_MODE||!h)return;let box=$(target);if(!box)return;box.replaceChildren();let title=document.createElement('h2');
+ if(h.mode==='outlast'){title.textContent='OUTLAST JOIN';}
+ else{title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) ${type==='J'?'JOIN':'BASE'}`;}
+ box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,type==='J'?joinCode(t):baseCode(t));let p=document.createElement('p');p.className='compact';p.textContent=h.mode==='outlast'?'Show to every player. All players are solo.':(type==='J'?'Show only to assigned players.':'Post physically at this team base; a copy can be scanned anywhere.');box.append(p)}
 function renderArtifactCheckboxes(){if(!HOST_MODE)return;const box=$('artifactList');if(!box||!h)return;box.replaceChildren();GUN_ORDER.forEach(gunId=>{const gun=GUNS[gunId];const label=document.createElement('label');const cb=document.createElement('input');cb.type='checkbox';cb.value=gunId;if(h.artifacts&&h.artifacts.includes(gunId))cb.checked=true;label.appendChild(cb);const span=document.createElement('span');span.textContent=gun.name+' ('+gun.tier+')';label.appendChild(span);box.appendChild(label)})}
 function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(!el)return;const sr=Number($('olStartR').value)||0,st=Number($('olStep').value)||0,iv=Number($('olInterval').value)||0,tm=$('olStartTime').value||'';el.textContent=`Shrinks from ${sr}m to 5m in ${st}m steps every ${iv} min, starting ${tm}`}
 function renderSetup(){
@@ -278,19 +278,24 @@ function renderSetup(){
  let v=(HOST_MODE&&h&&view==='choice')?'hostPanel':view;
  ['choice','hostForm','hostPanel','joinPanel','preview'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
  if(v==='hostPanel'&&h){
-  const hi=$('hostInfo');if(hi)hi.textContent=h.mode==='outlast'?`${h.game} · ${h.gid.slice(0,8)} · ${outlastRuleText(h.outlast)} · RED ${h.rules.a} / BLUE ${h.rules.b}`:`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;
+  const hi=$('hostInfo');
+  if(hi)hi.textContent=h.mode==='outlast'?`${h.game} · ${h.gid.slice(0,8)} · ${outlastRuleText(h.outlast)}`:`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;
+  const isOL=h.mode==='outlast';
+  const ja=$('hostJA');if(ja)ja.textContent=isOL?'JOIN OUTLAST':'JOIN RED';
+  const jb=$('hostJB');if(jb)jb.style.display=isOL?'none':'';
   const hq=$('hostQR');if(hq&&!hq.childNodes.length)hostDraw('J','A','hostQR');
   renderArtifactCheckboxes();
   const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers;
-  const hb=$('hostBaseBtns');if(hb)hb.classList.toggle('hidden',h.mode==='outlast');
+  const hb=$('hostBaseBtns');if(hb)hb.classList.toggle('hidden',isOL);
   const ws=$('winnerSection');
   if(ws){
-   if(h.mode==='outlast'&&time()>=h.outlast.startEpoch)ws.classList.remove('hidden');
+   if(isOL&&time()>=h.outlast.startEpoch)ws.classList.remove('hidden');
    else ws.classList.add('hidden');
   }
  }
  if(v==='preview'&&pending){
-  const pt=$('previewTeam');if(pt)pt.textContent=`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;
+  const pt=$('previewTeam');
+  if(pt)pt.textContent=pending.mode==='outlast'?'OUTLAST — FREE FOR ALL':`${pending.team==='A'?'RED':'BLUE'} TEAM ${pending.team==='A'?pending.rules.a:pending.rules.b}`;
   const pr=$('previewRules');if(pr)pr.textContent=pending.mode==='outlast'?outlastRuleText(pending.outlast):ruleText(pending.rules);
  }
 }
@@ -299,9 +304,10 @@ function renderPlay(){
  let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';
  document.body.classList.toggle('returning',ret);
  document.body.classList.toggle('mist',dead);
- const pa=$('playarea');if(pa)pa.classList.toggle('teamB',s.team==='B');
+ const pa=$('playarea');
+ if(pa)pa.classList.toggle('teamB',s.team==='B');
  const idEl=$('identity');
- if(idEl)idEl.textContent=s.mode==='outlast'?`${s.name} · ${s.team==='A'?s.rules.a:s.rules.b} · ${s.game} · OUTLAST`:`${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;
+ if(idEl)idEl.textContent=s.mode==='outlast'?`${s.name} · OUTLAST · ${s.game} · 2-minute bleedout`: `${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;
  const bar=$('bar');
  if(bar){
   bar.replaceChildren();
@@ -314,6 +320,7 @@ function renderPlay(){
  const scanImg=$('scanImg');
  if(scanImg){
   if(ret)scanImg.src='./baserespawn.jpg';
+  else if(s.mode==='outlast')scanImg.src='./Reapersrewards1.jpg';
   else if(s.rules.medic==='none')scanImg.src='./Reapersrewards1.jpg';
   else scanImg.src='./qrscanbu.jpg';
  }
@@ -348,7 +355,7 @@ function renderPlay(){
   span.style.fontSize=fs+'px';
   tagBtn.appendChild(span);tagBtn.onclick=()=>scan('play','tag');st.append(tagBtn);
   let hint=document.createElement('p');hint.className='compact';
-  hint.textContent=s.mode==='outlast'?'Reaper scans your tags. No receipt in OUTLAST.':(s.rules.medic==='none'?'Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.':'Reaper presses TAG to take tags. Medic presses the yellow bar to heal.');
+  hint.textContent=s.mode==='outlast'?'A Reaper will scan your tags. No receipt in OUTLAST.':(s.rules.medic==='none'?'Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.':'Reaper presses TAG to take tags. Medic presses the yellow bar to heal.');
   st.append(hint);
   secondsLeft();refreshOffer();
  }else if(ret||dead){
@@ -356,11 +363,21 @@ function renderPlay(){
   if(dead){let gif=document.createElement('img');gif.src='./eliminated.gif';gif.alt='Eliminated';gif.style.maxWidth='80%';gif.style.borderRadius='12px';gif.style.margin='10px 0';st.append(gif)}
   let p=document.createElement('p');p.textContent=ret?'Scan your assigned base. Spent finite lives stay red.':'Leave play safely. Help and history remain below.';st.append(p);
  }else{
-  let p=document.createElement('p');p.className='teamBadge';p.textContent=`${s.name} : ${s.team==='A'?s.rules.a:s.rules.b}`;st.append(p);
-  let panel=document.createElement('div');panel.className='readyPanel';
-  let image=document.createElement('img');image.src='./war-adventures-logo.png';image.alt='War Adventures logo';
-  image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';panel.append(word)};
-  panel.append(image);st.append(panel);
+  if(s.mode==='outlast'){
+   let p=document.createElement('p');p.className='teamBadge';p.style.background='#3d6b57';p.textContent=`${s.name} · OUTLAST`;st.append(p);
+   let panel=document.createElement('div');panel.className='readyPanel';
+   panel.style.background='#0e1c17';
+   panel.style.border='2px solid #d4af37';
+   let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
+   let word=document.createElement('div');word.style.cssText='font-size:22px;font-weight:900;letter-spacing:5px;margin-top:10px;color:#d4af37';word.textContent='OUTLAST';panel.appendChild(word);
+   st.append(panel);
+  }else{
+   let p=document.createElement('p');p.className='teamBadge';p.textContent=`${s.name} : ${s.team==='A'?s.rules.a:s.rules.b}`;st.append(p);
+   let panel=document.createElement('div');panel.className='readyPanel';
+   let image=document.createElement('img');image.src='./war-adventures-logo.png';image.alt='War Adventures logo';
+   image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';panel.append(word)};
+   panel.append(image);st.append(panel);
+  }
  }
  let groups=new Map();
  for(let w of s.wins){let g=groups.get(w.owner)||{name:w.name,items:[]};g.items.push(w);groups.set(w.owner,g)}
@@ -417,7 +434,6 @@ function renderArmoury(){
   const tierEl=document.createElement('div');tierEl.className='armouryTier';tierEl.style.color=tc;tierEl.textContent=gun.tier;slot.appendChild(tierEl);
   grid.appendChild(slot);
  });
- // OUTLAST card
  const winCount=(career.outlastWins||[]).length;
  const oslot=document.createElement('div');oslot.className='armouryOutlastSlot';
  const ocard=document.createElement('div');ocard.className='armouryOutlastCard';
@@ -574,6 +590,8 @@ if(HOST_MODE){
 function applyHostMode(){
  const isOutlast=hostMode==='outlast';
  ['livesLabel','secondsLabel','medicLabel','basesRow'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ // Hide the labels row
+ const la=$('labelA');if(la){const row=la.closest('.row');if(row)row.style.display=isOutlast?'none':''}
  const op=$('outlastPanel');if(op)op.classList.toggle('hidden',!isOutlast);
  const ms=$('modeStandard'),mo=$('modeOutlast');
  if(ms)ms.className=isOutlast?'wide alt':'wide';
