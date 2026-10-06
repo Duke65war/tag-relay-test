@@ -38,10 +38,11 @@ const OUTLAST_BLEEDOUT=120000;
 const OUTLAST_END_RADIUS=5;
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null,career=null;
 let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null;
+let lastOutlastLive=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,12}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
 const ruleOK=r=>r&&(/^(U|[1-9]|1[0-9]|20)$/.test(String(r.lives)))&&Number.isInteger(r.seconds)&&r.seconds>=30&&r.seconds<=600&&['none','one','two'].includes(r.medic)&&labelOK(r.a)&&labelOK(r.b)&&r.a!==r.b;
 const ruleText=r=>`${r.lives==='U'?'Unlimited':r.lives+' lives'} · ${r.seconds}s · ${r.medic==='none'?'no medic':r.medic==='one'?'one-scan medic':'two-scan medic (30s)'}`;
-const outlastRuleText=o=>`OUTLAST · ${o.startRadius}m → 5m · −${o.step}m every ${o.intervalMin}min · starts ${new Date(o.startEpoch).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+const outlastRuleText=o=>`OUTLAST · ${o.startRadius}m → 5m · −${o.step}m every ${o.intervalMin}min · starts ${new Date(o.startEpoch).toLocaleString([],{dateStyle:'short',timeStyle:'short'})}`;
 function note(x){const el=$('notice');if(el)el.textContent=x||''}function record(x,m){x.events.push({at:new Date().toISOString(),message:m})}
 function buzz(kind){try{if(!navigator.vibrate)return;navigator.vibrate(kind==='elim'?[300,100,300,100,300]:[200,100,200])}catch(e){}}
 function persist(x){try{localStorage.setItem(KEY,JSON.stringify(x));s=x;render();return true}catch(e){note('SAVE FAILED. Do not continue play; browser storage unavailable.');return false}}
@@ -89,7 +90,7 @@ function getJoin(raw){
   if(!Number.isFinite(startRadius)||!Number.isFinite(endRadius)||!Number.isFinite(step)||!Number.isFinite(intervalMs))throw Error('Invalid OUTLAST schedule');
   const playerNow=time();
   const offset=hostNow-playerNow;
-  if(playerNow+offset>startEpoch+120000)throw Error('This game already started. Ask host for a new one.');
+  if(playerNow+offset>startEpoch+1800000)throw Error('This game already started. Ask host for a new one.');
   const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T'};
   pending={gid,game,rules,team:'S',mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset}};
   view='preview';render();note('OUTLAST game. Enter your callsign.');
@@ -112,11 +113,10 @@ function hostCreate(){
   if(!Number.isFinite(startRadius)||startRadius<20||startRadius>500){note('Start radius 20–500m');return}
   if(!Number.isFinite(step)||step<5||step>100){note('Step 5–100m');return}
   if(!Number.isFinite(intervalMin)||intervalMin<1||intervalMin>30){note('Interval 1–30 min');return}
-  if(!/^\d{2}:\d{2}$/.test(startTimeStr)){note('Set a start time');return}
-  const now=new Date();
-  const [hh,mm]=startTimeStr.split(':').map(Number);
-  const st=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0,0);
-  if(st.getTime()<now.getTime())st.setDate(st.getDate()+1);
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(startTimeStr)){note('Set a start date and time');return}
+  const st=new Date(startTimeStr);
+  if(isNaN(st.getTime())){note('Invalid start date/time');return}
+  if(st.getTime()<time()-60000){note('Start time is in the past');return}
   const outlast={targetLat:hostTarget.lat,targetLng:hostTarget.lng,startRadius,endRadius:OUTLAST_END_RADIUS,step,intervalMin,startEpoch:st.getTime()};
   const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T'};
   if(saveHost({version:4,gid:hex(),game,rules,baseA:'',baseB:'',mode:'outlast',outlast,created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
@@ -237,7 +237,6 @@ function accept(raw){
  if(a[1]!=='O')throw Error('Expected a player offer QR');
  if(s.phase!=='ACTIVE')throw Error('Cannot capture or medic while hit, out or eliminated');
  let o=offerData(a);
- // In OUTLAST, everyone is a Reaper. Skip team check.
  const isCapture = s.mode==='outlast' || o.team !== s.team;
  if(isCapture){
   if(s.seen.includes(o.offer))throw Error('Already grabbed this offer on this phone');
@@ -269,7 +268,8 @@ function hostDraw(type,t,target){if(!HOST_MODE||!h)return;let box=$(target);if(!
  else{title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) ${type==='J'?'JOIN':'BASE'}`;}
  box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,type==='J'?joinCode(t):baseCode(t));let p=document.createElement('p');p.className='compact';p.textContent=h.mode==='outlast'?'Show to every player. All players are solo.':(type==='J'?'Show only to assigned players.':'Post physically at this team base; a copy can be scanned anywhere.');box.append(p)}
 function renderArtifactCheckboxes(){if(!HOST_MODE)return;const box=$('artifactList');if(!box||!h)return;box.replaceChildren();GUN_ORDER.forEach(gunId=>{const gun=GUNS[gunId];const label=document.createElement('label');const cb=document.createElement('input');cb.type='checkbox';cb.value=gunId;if(h.artifacts&&h.artifacts.includes(gunId))cb.checked=true;label.appendChild(cb);const span=document.createElement('span');span.textContent=gun.name+' ('+gun.tier+')';label.appendChild(span);box.appendChild(label)})}
-function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(!el)return;const sr=Number($('olStartR').value)||0,st=Number($('olStep').value)||0,iv=Number($('olInterval').value)||0,tm=$('olStartTime').value||'';el.textContent=`Shrinks from ${sr}m to 5m in ${st}m steps every ${iv} min, starting ${tm}`}
+function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(!el)return;const sr=Number($('olStartR').value)||0,st=Number($('olStep').value)||0,iv=Number($('olInterval').value)||0,tm=$('olStartTime').value||'';el.textContent=`Shrinks from ${sr}m to 5m in ${st}m steps every ${iv} min, starting ${tm||'—'}`}
+function defaultOlStartValue(){const pad=n=>String(n).padStart(2,'0');const now=new Date();now.setMinutes(0,0,0);now.setHours(now.getHours()+1);return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`}
 function renderSetup(){
  const st=$('setup'),pl=$('play');
  if(st)st.classList.toggle('hidden',!!s);
@@ -287,6 +287,8 @@ function renderSetup(){
   renderArtifactCheckboxes();
   const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers;
   const hb=$('hostBaseBtns');if(hb)hb.classList.toggle('hidden',isOL);
+  const hp=$('hostPlayingSection');if(hp)hp.classList.toggle('hidden',isOL);
+  const wm=$('hostWatchMap');if(wm)wm.style.display=isOL?'':'none';
   const ws=$('winnerSection');
   if(ws){
    if(isOL&&time()>=h.outlast.startEpoch)ws.classList.remove('hidden');
@@ -365,12 +367,21 @@ function renderPlay(){
  }else{
   if(s.mode==='outlast'){
    let p=document.createElement('p');p.className='teamBadge';p.style.background='#3d6b57';p.textContent=`${s.name} · OUTLAST`;st.append(p);
+   const hostNow=playerHostNow();
+   const live=!!(s.outlast&&hostNow>=s.outlast.startEpoch);
    let panel=document.createElement('div');panel.className='readyPanel';
-   panel.style.background='#0e1c17';
-   panel.style.border='2px solid #d4af37';
+   panel.style.background=live?'#1b6b3a':'#0e1c17';
+   panel.style.border=live?'2px solid #4ade80':'2px solid #d4af37';
+   let status=document.createElement('div');
+   status.className='liveStatus';
+   status.dataset.live=live?'1':'0';
+   status.style.cssText='font-size:18px;font-weight:900;letter-spacing:4px;margin-bottom:14px;color:'+(live?'#4ade80':'#d4af37');
+   status.textContent=live?'GAME IS ON':'STAND BY';
+   panel.appendChild(status);
    let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
    let word=document.createElement('div');word.style.cssText='font-size:22px;font-weight:900;letter-spacing:5px;margin-top:10px;color:#d4af37';word.textContent='OUTLAST';panel.appendChild(word);
    st.append(panel);
+   lastOutlastLive=live;
   }else{
    let p=document.createElement('p');p.className='teamBadge';p.textContent=`${s.name} : ${s.team==='A'?s.rules.a:s.rules.b}`;st.append(p);
    let panel=document.createElement('div');panel.className='readyPanel';
@@ -487,7 +498,7 @@ function showPrintOverlay(){
  saveHost(h);
  const po=$('printOverlay');if(po)po.classList.remove('hidden');
 }
-/* --- BOUNDARY WATCH (OUTLAST) --- */
+/* --- BOUNDARY WATCH --- */
 function startBoundaryWatch(){
  if(boundaryWatchId!==null)return;
  if(!navigator.geolocation)return;
@@ -558,7 +569,7 @@ $('armouryPlayBtn').onclick=()=>{loadCareer();careerPurgeIfExpired();renderArmou
 $('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
 /* --- HOST-ONLY BINDINGS --- */
 if(HOST_MODE){
- $('hostOpen').onclick=()=>{view='hostForm';hostMode='standard';hostTarget=null;applyHostMode();render()};
+ $('hostOpen').onclick=()=>{view='hostForm';hostMode='standard';hostTarget=null;applyHostMode();const el=$('olStartTime');if(el&&!el.value)el.value=defaultOlStartValue();render()};
  $('hostBack').onclick=()=>{view='choice';render()};
  $('create').onclick=hostCreate;
  const ms=$('modeStandard'),mo=$('modeOutlast');
@@ -566,6 +577,7 @@ if(HOST_MODE){
  if(mo)mo.onclick=()=>{hostMode='outlast';applyHostMode();updateOutlastPreview()};
  ['olStartR','olStep','olInterval','olStartTime'].forEach(id=>{const el=$(id);if(el)el.oninput=updateOutlastPreview});
  const pt=$('pickTarget');if(pt)pt.onclick=()=>{placingTarget=true;openMapForTarget()};
+ const wm=$('hostWatchMap');if(wm)wm.onclick=()=>{if(window._hostWatchMap)window._hostWatchMap()};
  for(let [id,type,t,target] of [['hostJA','J','A','hostQR'],['hostJB','J','B','hostQR'],['hostBA','B','A','hostQR'],['hostBB','B','B','hostQR'],['playJA','J','A','playHostQR'],['playJB','J','B','playHostQR'],['playBA','B','A','playHostQR'],['playBB','B','B','playHostQR']]){
   const el=$(id);if(el)el.onclick=()=>hostDraw(type,t,target);
  }
@@ -590,7 +602,6 @@ if(HOST_MODE){
 function applyHostMode(){
  const isOutlast=hostMode==='outlast';
  ['livesLabel','secondsLabel','medicLabel','basesRow'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
- // Hide the labels row
  const la=$('labelA');if(la){const row=la.closest('.row');if(row)row.style.display=isOutlast?'none':''}
  const op=$('outlastPanel');if(op)op.classList.toggle('hidden',!isOutlast);
  const ms=$('modeStandard'),mo=$('modeOutlast');
@@ -600,7 +611,7 @@ function applyHostMode(){
  if(ti)ti.textContent=hostTarget?`Target set: ${hostTarget.lat.toFixed(5)}, ${hostTarget.lng.toFixed(5)}`:'No target set';
  updateOutlastPreview();
 }
-function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(!el)return;const sr=Number($('olStartR').value)||0,st=Number($('olStep').value)||0,iv=Number($('olInterval').value)||0,tm=$('olStartTime').value||'';el.textContent=`Shrinks from ${sr}m to 5m in ${st}m steps every ${iv} min, starting ${tm}`}
+function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(!el)return;const sr=Number($('olStartR').value)||0,st=Number($('olStep').value)||0,iv=Number($('olInterval').value)||0,tm=$('olStartTime').value||'';el.textContent=`Shrinks from ${sr}m to 5m in ${st}m steps every ${iv} min, starting ${tm||'—'}`}
 /* --- MAP --- */
 (function(){
  let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),markersBox=$('mapMarkers'),boundarySvg=$('mapBoundarySvg'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus');
@@ -647,15 +658,16 @@ function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(
  function renderBoundary(){
   if(!boundarySvg)return;
   boundarySvg.replaceChildren();
-  if(!s||s.mode!=='outlast'||!s.outlast)return;
+  const olData = (s&&s.mode==='outlast'&&s.outlast) ? s.outlast : ((h&&h.mode==='outlast'&&h.outlast) ? h.outlast : null);
+  if(!olData)return;
   const m=mPerPxNow();if(!m)return;
   const {iw,ih}=getImgDims();
   boundarySvg.setAttribute('viewBox','0 0 '+iw+' '+ih);
-  const tp=gpsToPct(s.outlast.targetLat,s.outlast.targetLng);if(!tp)return;
+  const tp=gpsToPct(olData.targetLat,olData.targetLng);if(!tp)return;
   const cx=tp.xPct*iw,cy=tp.yPct*ih;
-  const hostNow=playerHostNow();
-  const curR=currentRadius(s.outlast,hostNow);
-  const nextR=Math.max(s.outlast.endRadius,curR-s.outlast.step);
+  const hostNow = (s&&s.outlast&&s.outlast.offset) ? (time()+s.outlast.offset) : time();
+  const curR=currentRadius(olData,hostNow);
+  const nextR=Math.max(olData.endRadius,curR-olData.step);
   const c1=document.createElementNS('http://www.w3.org/2000/svg','circle');
   c1.setAttribute('cx',cx);c1.setAttribute('cy',cy);c1.setAttribute('r',curR/m);
   c1.setAttribute('fill','rgba(200,40,40,0.10)');
@@ -663,7 +675,7 @@ function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(
   c1.setAttribute('stroke-width','3');
   c1.setAttribute('vector-effect','non-scaling-stroke');
   boundarySvg.appendChild(c1);
-  if(nextR<curR&&nextR>s.outlast.endRadius){
+  if(nextR<curR&&nextR>olData.endRadius){
    const c2=document.createElementNS('http://www.w3.org/2000/svg','circle');
    c2.setAttribute('cx',cx);c2.setAttribute('cy',cy);c2.setAttribute('r',nextR/m);
    c2.setAttribute('fill','none');
@@ -731,14 +743,12 @@ function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(
  $('mapDebugCopy').onclick=()=>{debugText.select();debugText.setSelectionRange(0,99999);try{document.execCommand('copy')}catch(e){}try{navigator.clipboard&&navigator.clipboard.writeText(debugText.value)}catch(e){}showBanner('Copied',1500)};
  loadAnchors();
  window._openMapForTarget=()=>{
-  reset();
-  overlay.classList.remove('hidden');
-  loadAnchors();
-  updateStatusDefault();
-  applyGrid();
-  renderMarkers();
-  renderBoundary();
+  reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
   showBanner('Tap the map to place the OUTLAST target',4000);
+ };
+ window._hostWatchMap=()=>{
+  reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
+  showBanner('Host live view — boundary updates automatically',3000);
  };
  window._refreshBoundary=()=>{renderBoundary()};
 })();
@@ -755,14 +765,15 @@ render();
 if(s&&s.mode==='outlast'){startBoundaryWatch()}
 reconcile();
 setInterval(()=>{
- reconcile();
- secondsLeft();
- refreshOffer();
- tickBoundary();
+ reconcile();secondsLeft();refreshOffer();tickBoundary();
  if(s&&s.mode==='outlast'&&s.phase==='ACTIVE'&&boundaryWatchId===null)startBoundaryWatch();
  if(s?.medPending&&time()>=s.medPending.deadline)edit(x=>{x.medPending=null;record(x,'Medic attempt expired')});
+ if(s&&s.mode==='outlast'&&s.phase==='ACTIVE'&&!s.offer&&!s.outbound&&s.outlast){
+  const live=playerHostNow()>=s.outlast.startEpoch;
+  if(live!==lastOutlastLive){lastOutlastLive=live;renderPlay()}
+ }
  const wb=window._refreshBoundary;if(wb&&!document.hidden)wb();
 },1000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer();render()}});
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>note('Offline cache registration failed.'));
 })();
