@@ -61,7 +61,7 @@ function careerAddOutlastWin(gid,hostStamp){if(!career.outlastWins)career.outlas
 /* --- HELPERS --- */
 function distanceMeters(lat1,lng1,lat2,lng2){const latAvg=((lat1+lat2)/2)*Math.PI/180;const mLat=111320,mLng=111320*Math.cos(latAvg);const dx=(lng2-lng1)*mLng;const dy=(lat2-lat1)*mLat;return Math.hypot(dx,dy)}
 function playerHostNow(){if(!s?.outlast?.offset)return time();return time()+s.outlast.offset}
-function currentRadius(o,hostNow){if(!o)return null;if(hostNow<o.startEpoch)return o.startRadius;const elapsed=hostNow-o.startEpoch;const steps=Math.floor(elapsed/o.intervalMs);const r=o.startRadius-steps*o.step;return Math.max(o.endRadius,r)}
+function currentRadius(o,hostNow){if(!o)return null;if(hostNow<o.startEpoch)return o.startRadius;const elapsed=hostNow-o.startEpoch;const iv=o.intervalMs||(o.intervalMin?o.intervalMin*60000:60000);const steps=Math.floor(elapsed/iv);const r=o.startRadius-steps*o.step;return Math.max(o.endRadius,r)}
 /* --- QR CODES --- */
 const code=(type,...values)=>JSON.stringify([V,type,...values]);
 const joinCode=t=>{
@@ -288,7 +288,7 @@ function renderSetup(){
   const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers;
   const hb=$('hostBaseBtns');if(hb)hb.classList.toggle('hidden',isOL);
   const hp=$('hostPlayingSection');if(hp)hp.classList.toggle('hidden',isOL);
-  const wm=$('hostWatchMap');if(wm)wm.style.display=isOL?'':'none';
+  const wm=$('hostWatchMap');if(wm){wm.style.display=isOL?'':'none';if(isOL&&h.outlast){const live=time()>=h.outlast.startEpoch;wm.textContent=live?'👁️ WATCH MAP (LIVE) — GAME IS ON':'👁️ WATCH MAP (LIVE) — STAND BY';wm.className=live?'wide':'wide alt'}}
   const ws=$('winnerSection');
   if(ws){
    if(isOL&&time()>=h.outlast.startEpoch)ws.classList.remove('hidden');
@@ -771,6 +771,14 @@ setInterval(()=>{
  if(s&&s.mode==='outlast'&&s.phase==='ACTIVE'&&!s.offer&&!s.outbound&&s.outlast){
   const live=playerHostNow()>=s.outlast.startEpoch;
   if(live!==lastOutlastLive){lastOutlastLive=live;renderPlay()}
+ }
+ if(HOST_MODE&&h&&h.mode==='outlast'&&view==='hostPanel'){
+  const wm=$('hostWatchMap');
+  if(wm){
+   const live=time()>=h.outlast.startEpoch;
+   const wantText=live?'👁️ WATCH MAP (LIVE) — GAME IS ON':'👁️ WATCH MAP (LIVE) — STAND BY';
+   if(wm.textContent!==wantText){wm.textContent=wantText;wm.className=live?'wide':'wide alt'}
+  }
  }
  const wb=window._refreshBoundary;if(wb&&!document.hidden)wb();
 },1000);
