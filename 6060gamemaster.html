@@ -129,7 +129,12 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <div id="hostQR"></div>
     <div id="hostPlayingSection"><details><summary>Host playing on this phone?</summary><p class="compact">Select the team assigned to you.</p><div class="row"><button id="selfA">JOIN RED</button><button id="selfB">JOIN BLUE</button></div></details></div>
     <button id="hostWatchMap" class="wide" style="display:none">👁️ WATCH MAP (LIVE)</button>
-    <div class="hostArtifacts"><h3>Artifacts for this game</h3><p class="compact">Tick the artifacts to hide on the field. Tap generate to produce paper QRs.</p><div id="artifactList"></div><button id="genArtifacts" class="wide alt">GENERATE ARTIFACT QRs</button></div>
+    <details id="artifactsCard" class="hostArtifacts" open>
+      <summary>Artifacts for this game</summary>
+      <p class="compact">Tick the artifacts to hide on the field. Tap generate to produce paper QRs.</p>
+      <div id="artifactList"></div>
+      <button id="genArtifacts" class="wide alt">GENERATE ARTIFACT QRs</button>
+    </details>
     <label style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px;background:#30443a;border-radius:8px"><input type="checkbox" id="unlockCareers" style="width:auto;margin:0"><span class="compact">Unlock dormant careers</span></label>
     <div id="winnerSection" class="hidden" style="margin:12px 0;padding:12px;background:#3d6b57;border-radius:9px">
       <h3 style="margin-top:0;color:#fff">OUTLAST — Declare winner</h3>
