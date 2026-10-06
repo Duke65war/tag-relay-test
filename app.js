@@ -38,13 +38,13 @@ const OUTLAST_BLEEDOUT=120000;
 const OUTLAST_END_RADIUS=5;
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null,career=null;
 let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null;
-let lastOutlastLive=null;
+let lastOutlastLive=null,lastOutlastStep=null,lastHostOutlastLive=null,lastHostOutlastStep=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,12}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
 const ruleOK=r=>r&&(/^(U|[1-9]|1[0-9]|20)$/.test(String(r.lives)))&&Number.isInteger(r.seconds)&&r.seconds>=30&&r.seconds<=600&&['none','one','two'].includes(r.medic)&&labelOK(r.a)&&labelOK(r.b)&&r.a!==r.b;
 const ruleText=r=>`${r.lives==='U'?'Unlimited':r.lives+' lives'} · ${r.seconds}s · ${r.medic==='none'?'no medic':r.medic==='one'?'one-scan medic':'two-scan medic (30s)'}`;
 const outlastRuleText=o=>`OUTLAST · ${o.startRadius}m → 5m · −${o.step}m every ${o.intervalMin}min · starts ${new Date(o.startEpoch).toLocaleString([],{dateStyle:'short',timeStyle:'short'})}`;
 function note(x){const el=$('notice');if(el)el.textContent=x||''}function record(x,m){x.events.push({at:new Date().toISOString(),message:m})}
-function buzz(kind){try{if(!navigator.vibrate)return;navigator.vibrate(kind==='elim'?[300,100,300,100,300]:[200,100,200])}catch(e){}}
+function buzz(kind){try{if(!navigator.vibrate)return;const p=kind==='elim'?[300,100,300,100,300]:kind==='start'?[500,200,500,200,500]:[200,100,200];navigator.vibrate(p)}catch(e){}}
 function persist(x){try{localStorage.setItem(KEY,JSON.stringify(x));s=x;render();return true}catch(e){note('SAVE FAILED. Do not continue play; browser storage unavailable.');return false}}
 function edit(fn){if(!s)return false;let x=JSON.parse(JSON.stringify(s));fn(x);return persist(x)}
 function saveHost(x){try{localStorage.setItem(HOST,JSON.stringify(x));h=x;return true}catch(e){note('Host setup could not be saved. Do not share game QRs.');return false}}
@@ -207,7 +207,7 @@ function acceptArtifact(a){
  throw Error('Could not add artifact');
 }
 function acceptWinner(a){
- if(a.length!==3)throw Error('Malformed winner QR');
+ if(a.length!==4)throw Error('Malformed winner QR');
  if(!s)throw Error('Join a team first');
  if(a[2]!==s.gid)throw Error('Wrong game');
  const hostStamp=a[3];
@@ -611,7 +611,6 @@ function applyHostMode(){
  if(ti)ti.textContent=hostTarget?`Target set: ${hostTarget.lat.toFixed(5)}, ${hostTarget.lng.toFixed(5)}`:'No target set';
  updateOutlastPreview();
 }
-function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(!el)return;const sr=Number($('olStartR').value)||0,st=Number($('olStep').value)||0,iv=Number($('olInterval').value)||0,tm=$('olStartTime').value||'';el.textContent=`Shrinks from ${sr}m to 5m in ${st}m steps every ${iv} min, starting ${tm||'—'}`}
 /* --- MAP --- */
 (function(){
  let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),markersBox=$('mapMarkers'),boundarySvg=$('mapBoundarySvg'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus');
@@ -768,16 +767,44 @@ setInterval(()=>{
  reconcile();secondsLeft();refreshOffer();tickBoundary();
  if(s&&s.mode==='outlast'&&s.phase==='ACTIVE'&&boundaryWatchId===null)startBoundaryWatch();
  if(s?.medPending&&time()>=s.medPending.deadline)edit(x=>{x.medPending=null;record(x,'Medic attempt expired')});
- if(s&&s.mode==='outlast'&&s.phase==='ACTIVE'&&!s.offer&&!s.outbound&&s.outlast){
-  const live=playerHostNow()>=s.outlast.startEpoch;
-  if(live!==lastOutlastLive){lastOutlastLive=live;renderPlay()}
+ if(s&&s.mode==='outlast'&&s.outlast){
+  const hostNow=playerHostNow();
+  const live=hostNow>=s.outlast.startEpoch;
+  if(live!==lastOutlastLive){
+   if(live)buzz('start');
+   lastOutlastLive=live;
+   if(s.phase==='ACTIVE'&&!s.offer&&!s.outbound)renderPlay();
+  }
+  if(live){
+   const iv=s.outlast.intervalMs||(s.outlast.intervalMin?s.outlast.intervalMin*60000:60000);
+   const step=Math.floor((hostNow-s.outlast.startEpoch)/iv);
+   if(lastOutlastStep!==null&&step>lastOutlastStep)buzz('return');
+   lastOutlastStep=step;
+  }
  }
- if(HOST_MODE&&h&&h.mode==='outlast'&&view==='hostPanel'){
+ if(HOST_MODE&&h&&h.mode==='outlast'&&h.outlast){
+  const live=time()>=h.outlast.startEpoch;
   const wm=$('hostWatchMap');
   if(wm){
-   const live=time()>=h.outlast.startEpoch;
    const wantText=live?'👁️ WATCH MAP (LIVE) — GAME IS ON':'👁️ WATCH MAP (LIVE) — STAND BY';
    if(wm.textContent!==wantText){wm.textContent=wantText;wm.className=live?'wide':'wide alt'}
+  }
+  if(live!==lastHostOutlastLive){
+   if(live){
+    buzz('start');
+    const ac=$('artifactsCard');if(ac)ac.removeAttribute('open');
+    const ws=$('winnerSection');if(ws)ws.classList.remove('hidden');
+   }else{
+    const ac=$('artifactsCard');if(ac)ac.setAttribute('open','');
+    const ws=$('winnerSection');if(ws)ws.classList.add('hidden');
+   }
+   lastHostOutlastLive=live;
+  }
+  if(live){
+   const iv=h.outlast.intervalMs||(h.outlast.intervalMin?h.outlast.intervalMin*60000:60000);
+   const step=Math.floor((time()-h.outlast.startEpoch)/iv);
+   if(lastHostOutlastStep!==null&&step>lastHostOutlastStep)buzz('return');
+   lastHostOutlastStep=step;
   }
  }
  const wb=window._refreshBoundary;if(wb&&!document.hidden)wb();
