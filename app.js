@@ -50,7 +50,7 @@ function edit(fn){if(!s)return false;let x=JSON.parse(JSON.stringify(s));fn(x);r
 function saveHost(x){try{localStorage.setItem(HOST,JSON.stringify(x));h=x;return true}catch(e){note('Host setup could not be saved. Do not share game QRs.');return false}}
 function makeQR(node,text,size=216){if(!node)return;node.replaceChildren();if(typeof QRCode!=='function'){node.textContent='QR library not loaded.';return}try{new QRCode(node,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){node.textContent='QR drawing failed'}}
 /* --- CAREER --- */
-function loadCareer(){try{const raw=localStorage.getItem(CAREER_KEY);if(raw){const c=JSON.parse(raw);if(c&&typeof c.lastPlayed==='number'&&Array.isArray(c.artefacts)){career=c;if(!Array.isArray(career.outlastWins))career.outlastWins=[];return}}}catch(e){}career={lastPlayed:Date.now(),artefacts:[],outlastWins:[]}}
+function loadCareer(){try{const raw=localStorage.getItem(CAREER_KEY);if(raw){const c=JSON.parse(raw);if(c&&typeof c.lastPlayed==='number'&&Array.isArray(c.artefacts)){career=c;if(!Array.isArray(career.outlastWins))career.outlastWins=[];if(typeof career.lifetimeTags!=='number')career.lifetimeTags=0;if(typeof career.lifetimeMedics!=='number')career.lifetimeMedics=0;return}}}catch(e){}career={lastPlayed:Date.now(),artefacts:[],outlastWins:[],lifetimeTags:0,lifetimeMedics:0}}
 function saveCareer(){try{localStorage.setItem(CAREER_KEY,JSON.stringify(career))}catch(e){}}
 function careerState(){const elapsed=time()-career.lastPlayed;if(elapsed>=EIGHT_WEEKS)return 'deleted';if(elapsed>=FIVE_WEEKS)return 'dormant';return 'active'}
 function careerPurgeIfExpired(){if(careerState()==='deleted'){career.artefacts=[];career.lastPlayed=time();saveCareer()}}
@@ -193,6 +193,8 @@ function acceptThanks(a){
  if(time()>=a[6])throw Error('Thank-you expired');
  const victimName=a[5];
  edit(x=>{x.medics.push({name:victimName,offer:x.outbound.offer,completedAt:time()});x.outbound=null;record(x,`Healed ${victimName}`)});
+ career.lifetimeMedics=(career.lifetimeMedics||0)+1;
+ saveCareer();
  note('Healed '+victimName+'. Thank-you received.');
 }
 function acceptArtifact(a){
@@ -241,6 +243,8 @@ function accept(raw){
  if(isCapture){
   if(s.seen.includes(o.offer))throw Error('Already grabbed this offer on this phone');
   edit(x=>{x.seen.push(o.offer);x.wins.push({...o,capturedAt:time()});if(x.mode!=='outlast'){x.outbound={type:'T',offer:o.offer,victimId:o.owner,victimName:o.name,deadline:time()+180000}}record(x,`Grabbed tags from ${o.name}`)});
+  career.lifetimeTags=(career.lifetimeTags||0)+1;
+  saveCareer();
   if(s.mode==='outlast'){note('Tags recorded. No receipt in OUTLAST.')}
   else{note('Show TAGS TAKEN to '+o.name+'. They scan it to confirm.')}
   return;
@@ -385,9 +389,49 @@ function renderPlay(){
   }else{
    let p=document.createElement('p');p.className='teamBadge';p.textContent=`${s.name} : ${s.team==='A'?s.rules.a:s.rules.b}`;st.append(p);
    let panel=document.createElement('div');panel.className='readyPanel';
+   
+   let container=document.createElement('div');
+   container.style.cssText='position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:100%; flex-direction:column; padding:20px 0;';
+   
+   let statsTop=document.createElement('div');
+   statsTop.style.cssText='font-size:28px; font-weight:900; color:#fff; text-shadow:2px 2px 6px #000; margin-bottom:20px; letter-spacing:1px;';
+   statsTop.textContent=`Missions: ${(career.outlastWins||[]).length}`;
+   
    let image=document.createElement('img');image.src='./war-adventures-logo.png';image.alt='War Adventures logo';
-   image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';panel.append(word)};
-   panel.append(image);st.append(panel);
+   image.style.maxHeight='min(30svh, 200px)';
+   image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';container.append(word)};
+   
+   let statsBottom=document.createElement('div');
+   statsBottom.style.cssText='display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:20px;';
+   
+   let tagStat=document.createElement('div');
+   tagStat.style.cssText='font-size:32px; font-weight:900; color:#fff; text-shadow:2px 2px 6px #000; display:flex; align-items:center; gap:10px;';
+   
+   let tagImg=document.createElement('img');
+   tagImg.src='./dogtag.svg';
+   tagImg.style.width='32px';
+   tagImg.style.height='32px';
+   
+   let tagNum=document.createElement('span');
+   tagNum.textContent=career.lifetimeTags||0;
+   
+   tagStat.append(tagImg, tagNum);
+   
+   let medicStat=document.createElement('div');
+   medicStat.style.cssText='font-size:32px; font-weight:900; color:#fff; text-shadow:2px 2px 6px #000; display:flex; align-items:center; gap:10px;';
+   
+   let medicEmoji=document.createElement('span');
+   medicEmoji.textContent='💉';
+   
+   let medicNum=document.createElement('span');
+   medicNum.textContent=career.lifetimeMedics||0;
+   
+   medicStat.append(medicEmoji, medicNum);
+   
+   statsBottom.append(tagStat, medicStat);
+   container.append(statsTop, image, statsBottom);
+   panel.append(container);
+   st.append(panel);
   }
  }
  let groups=new Map();
