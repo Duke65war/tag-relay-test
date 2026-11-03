@@ -75,7 +75,8 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   #printOverlay{position:static;background:#fff;color:#000;padding:0;overflow:visible}
   #printOverlay h2{color:#000}
   #printClose,#printBtn{display:none!important}
-  .printCard{page-break-inside:avoid;background:#fff;color:#000;border:2px solid #000}
+  .printCard{page-break-inside:avoid;page-break-after:always;background:#fff;color:#000;border:2px solid #000;margin:0 auto;max-width:100%}
+  .printCard:last-child{page-break-after:auto;}
   .printCard h3{color:#000}
   .printCard .code{color:#000}
 }
@@ -104,7 +105,14 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <label id="secondsLabel">Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="300"></label>
     <label id="medicLabel">Medic rule<select id="medic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
     <div class="row"><label>Red team label (A)<input id="labelA" maxlength="12" value="A"></label><label>Blue team label (B)<input id="labelB" maxlength="12" value="B"></label></div>
-    <div class="row" id="basesRow"><label>Red base<select id="baseA"></select></label><label>Blue base<select id="baseB"></select></label></div>
+    <div class="row" id="basesRow">
+      <label>Red Sign<select id="signA"></select></label>
+      <label>Blue Sign<select id="signB"></select></label>
+    </div>
+    <div class="row" id="basesLocRow">
+      <label>Red Base<select id="baseA"></select></label>
+      <label>Blue Base<select id="baseB"></select></label>
+    </div>
     <div id="outlastPanel" class="hidden">
       <div class="card" style="margin:8px 0"><h3 style="margin-top:0">OUTLAST settings</h3>
         <button id="pickTarget" class="wide alt">📍 TAP MAP TO PLACE TARGET</button>
@@ -135,6 +143,11 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
       <div id="artifactList"></div>
       <button id="genArtifacts" class="wide alt">GENERATE ARTIFACT QRs</button>
     </details>
+    <div style="margin:12px 0;padding:12px;background:#1b3429;border-radius:9px;border:1px solid #354d40">
+      <h3 style="margin-top:0;color:#fff;font-size:16px">Permanent Base Signs</h3>
+      <p class="compact">Print these once and laminate them.</p>
+      <button id="genBaseSigns" class="wide alt">PRINT BASE SIGNS</button>
+    </div>
     <label style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px;background:#30443a;border-radius:8px"><input type="checkbox" id="unlockCareers" style="width:auto;margin:0"><span class="compact">Unlock dormant careers</span></label>
     <div id="winnerSection" class="hidden" style="margin:12px 0;padding:12px;background:#3d6b57;border-radius:9px">
       <h3 style="margin-top:0;color:#fff">OUTLAST — Declare winner</h3>
