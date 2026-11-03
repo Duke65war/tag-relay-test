@@ -37,7 +37,7 @@ const FIVE_WEEKS=5*7*24*60*60*1000,EIGHT_WEEKS=8*7*24*60*60*1000;
 const OUTLAST_BLEEDOUT=120000;
 const OUTLAST_END_RADIUS=5;
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null,career=null;
-let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null,hostBatch=[],hostBatchDate='';
+let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null,hostBatch=[],hostBatchDate='',batchMode='standard',batchTarget=null;
 let lastOutlastLive=null,lastOutlastStep=null,lastHostOutlastLive=null,lastHostOutlastStep=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,12}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
 const ruleOK=r=>r&&(/^(U|[1-9]|1[0-9]|20)$/.test(String(r.lives)))&&Number.isInteger(r.seconds)&&r.seconds>=30&&r.seconds<=600&&['none','one','two'].includes(r.medic)&&labelOK(r.a)&&labelOK(r.b)&&r.a!==r.b;
@@ -65,6 +65,9 @@ function currentRadius(o,hostNow){if(!o)return null;if(hostNow<o.startEpoch)retu
 /* --- QR CODES --- */
 const code=(type,...values)=>JSON.stringify([V,type,...values]);
 const joinArray=(gd,t)=>{
+ if(gd.mode==='outlast'){
+  return [V,'J',gd.gid,gd.game,1,120,'none','S','T','S','outlast',gd.startEpoch,time(),gd.targetLat,gd.targetLng,gd.startRadius,OUTLAST_END_RADIUS,gd.step,gd.intervalMs];
+ }
  const baseLoc = t==='A' ? gd.baseA : gd.baseB;
  const b = BASES[baseLoc] || {lat:0, lng:0};
  const sign = t==='A' ? (gd.signA||'R1') : (gd.signB||'B1');
@@ -157,19 +160,29 @@ function addGameToBatch(){
  if(startEpoch<time()-60000){note('Start time is in the past');return}
  if(hostBatch.some(g=>g.game===game)){note('Game name already used in this batch');return}
  
- const rules={lives:$('batchLives').value,seconds:Number($('batchSeconds').value),medic:$('batchMedic').value,a:$('batchLabelA').value.trim().toUpperCase(),b:$('batchLabelB').value.trim().toUpperCase()};
- const baseA=$('batchBaseA').value,baseB=$('batchBaseB').value;
- const signA=$('batchSignA').value,signB=$('batchSignB').value;
- 
- if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
- if(baseA===baseB){note('Red and blue base locations must be different.');return}
- if(hostBatch.some(g=>g.signA===signA||g.signB===signA)){note(`Sign ${signA} is already used in another game.`);return}
- if(hostBatch.some(g=>g.signA===signB||g.signB===signB)){note(`Sign ${signB} is already used in another game.`);return}
- 
- hostBatch.push({game,gid:hex(),startEpoch,rules,baseA,baseB,signA,signB});
+ if(batchMode==='outlast'){
+   if(!batchTarget){note('Set target on map first.');return}
+   const startRadius=Number($('batchOlStartR').value),step=Number($('batchOlStep').value),intervalMin=Number($('batchOlInterval').value);
+   if(!Number.isFinite(startRadius)||startRadius<20||startRadius>500){note('Start radius 20–500m');return}
+   if(!Number.isFinite(step)||step<5||step>100){note('Step 5–100m');return}
+   if(!Number.isFinite(intervalMin)||intervalMin<1||intervalMin>30){note('Interval 1–30 min');return}
+   hostBatch.push({game,gid:hex(),startEpoch,mode:'outlast',targetLat:batchTarget.lat,targetLng:batchTarget.lng,startRadius,step,intervalMs:intervalMin*60000});
+ } else {
+   const rules={lives:$('batchLives').value,seconds:Number($('batchSeconds').value),medic:$('batchMedic').value,a:$('batchLabelA').value.trim().toUpperCase(),b:$('batchLabelB').value.trim().toUpperCase()};
+   const baseA=$('batchBaseA').value,baseB=$('batchBaseB').value;
+   const signA=$('batchSignA').value,signB=$('batchSignB').value;
+   if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
+   if(baseA===baseB){note('Red and blue base locations must be different.');return}
+   if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signA||g.signB===signA))){note(`Sign ${signA} is already used in another game.`);return}
+   if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signB||g.signB===signB))){note(`Sign ${signB} is already used in another game.`);return}
+   hostBatch.push({game,gid:hex(),startEpoch,mode:'standard',rules,baseA,baseB,signA,signB});
+ }
  hostBatch.sort((a,b)=>a.startEpoch-b.startEpoch);
  renderBatchList();
  $('batchGameName').value='';
+ $('batchGameTime').value='';
+ batchTarget=null;
+ $('batchTargetInfo').textContent='No target set';
 }
 function renderBatchList(){
  const list=$('batchList');if(!list)return;
@@ -178,7 +191,8 @@ function renderBatchList(){
  hostBatch.forEach((g,i)=>{
   let div=document.createElement('div');div.style.cssText='background:#30443a;padding:8px;margin:4px 0;border-radius:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;';
   let time=new Date(g.startEpoch).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">Red: ${g.signA} @ ${g.baseA} · Blue: ${g.signB} @ ${g.baseB}</span></div>`;
+  let details = g.mode==='outlast' ? `OUTLAST · ${g.startRadius}m → 5m` : `Red: ${g.signA} @ ${g.baseA} · Blue: ${g.signB} @ ${g.baseB}`;
+  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">${details}</span></div>`;
   let btn=document.createElement('button');btn.textContent='✕';btn.className='danger';btn.style.cssText='padding:4px 8px; min-height:auto; font-size:12px;';btn.onclick=()=>{hostBatch.splice(i,1);renderBatchList();};
   div.appendChild(btn);
   list.appendChild(div);
@@ -740,10 +754,12 @@ if(HOST_MODE){
  $('hostBatchOpen').onclick=()=>{
   view='hostBatchForm';
   hostBatch=[]; 
+  batchMode='standard';
   let d=new Date(); d.setDate(d.getDate()+((7-d.getDay())%7||7));
   hostBatchDate=d.toISOString().split('T')[0];
   $('batchDate').value=hostBatchDate;
   renderBatchList();
+  applyBatchMode();
   render();
  };
  $('addGameToBatch').onclick=addGameToBatch;
@@ -751,6 +767,10 @@ if(HOST_MODE){
  $('genBatchQRs').onclick=generateBatchQR;
  $('batchBack').onclick=()=>{view='choice';render()};
  $('batchPanelBack').onclick=()=>{view='choice';render()};
+ const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
+ if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};
+ if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
+ const bpt=$('batchPickTarget');if(bpt)bpt.onclick=()=>{placingTarget=true;openMapForTarget()};
  $('hostBack').onclick=()=>{view='choice';render()};
  $('create').onclick=hostCreate;
  const ms=$('modeStandard'),mo=$('modeOutlast');
@@ -792,6 +812,16 @@ function applyHostMode(){
  const ti=$('targetInfo');
  if(ti)ti.textContent=hostTarget?`Target set: ${hostTarget.lat.toFixed(5)}, ${hostTarget.lng.toFixed(5)}`:'No target set';
  updateOutlastPreview();
+}
+function applyBatchMode(){
+ const isOutlast=batchMode==='outlast';
+ ['batchStandardFields','batchStandardSigns'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ const op=$('batchOutlastFields');if(op)op.classList.toggle('hidden',!isOutlast);
+ const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
+ if(bms)bms.className=isOutlast?'wide alt':'wide';
+ if(bmo)bmo.className=isOutlast?'wide':'wide alt';
+ const ti=$('batchTargetInfo');
+ if(ti)ti.textContent=batchTarget?`Target set: ${batchTarget.lat.toFixed(5)}, ${batchTarget.lng.toFixed(5)}`:'No target set';
 }
 /* --- MAP --- */
 (function(){
@@ -899,8 +929,13 @@ function applyHostMode(){
   const yRatio=(clientY-rect.top)/rect.height;
   if(xRatio<0||xRatio>1||yRatio<0||yRatio>1){showBanner('Tap inside the image',2500);return}
   const g=pctToGps(xRatio,yRatio);if(!g){showBanner('Anchors not ready',2500);return}
-  hostTarget={lat:g.lat,lng:g.lng};
-  const ti=$('targetInfo');if(ti)ti.textContent=`Target set: ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}`;
+  if(view==='hostBatchForm'){
+    batchTarget={lat:g.lat,lng:g.lng};
+    const ti=$('batchTargetInfo');if(ti)ti.textContent=`Target set: ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}`;
+  } else {
+    hostTarget={lat:g.lat,lng:g.lng};
+    const ti=$('targetInfo');if(ti)ti.textContent=`Target set: ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}`;
+  }
   placingTarget=false;
   overlay.classList.add('hidden');reset();stopWatch();
   showBanner('Target set.',2000);
@@ -925,7 +960,7 @@ function applyHostMode(){
  loadAnchors();
  window._openMapForTarget=()=>{
   reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
-  showBanner('Tap the map to place the OUTLAST target',4000);
+  showBanner('Tap the map to place the target',4000);
  };
  window._hostWatchMap=()=>{
   reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
@@ -935,10 +970,13 @@ function applyHostMode(){
 })();
 function openMapForTarget(){if(window._openMapForTarget)window._openMapForTarget()}
 /* --- INIT --- */
-(function(){const ba=$('baseA'),bb=$('baseB'),sa=$('signA'),sb=$('signB');if(!ba||!bb||!sa||!sb)return;const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia';for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;sa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;sb.appendChild(rb)}sa.value='R1';sb.value='B1';
- const bsa=$('batchSignA'),bsb=$('batchSignB'),bba=$('batchBaseA'),bbb=$('batchBaseB');if(bsa&&bsb&&bba&&bbb){for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;bsa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;bsb.appendChild(rb)}opt(bba,main);opt(bba,sec);opt(bba,safe);opt(bbb,main);opt(bbb,sec);opt(bbb,safe);bsa.value='R1';bsb.value='B1';bba.value='Church';bbb.value='Diego Garcia';}
+(function(){const ba=$('baseA'),bb=$('baseB'),sa=$('signA'),sb=$('signB'),bsa=$('batchSignA'),bsb=$('batchSignB'),bba=$('batchBaseA'),bbb=$('batchBaseB');const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');
+ function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}
+ if(ba&&bb){opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia';}
+ if(bsa&&bsb&&bba&&bbb){opt(bba,main);opt(bba,sec);opt(bba,safe);opt(bbb,main);opt(bbb,sec);opt(bbb,safe);bba.value='Church';bbb.value='Diego Garcia';for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;bsa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;bsb.appendChild(rb)}bsa.value='R1';bsb.value='B1';}
+ if(sa&&sb){for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;sa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;sb.appendChild(rb)}sa.value='R1';sb.value='B1';}
 })();
-(function(){const lv=$('lives'),blv=$('batchLives');['lives','batchLives'].forEach(id=>{const el=$(id);if(!el)return;for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;el.append(x)}})})();
+(function(){['lives','batchLives'].forEach(id=>{const el=$(id);if(!el)return;for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;el.append(x)}})})();
 if(HOST_MODE){
  try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid))throw Error('host');h=x;if(!h.mode)h.mode='standard';view='hostPanel'}}catch(e){note('Saved host game unreadable.')}
 }
