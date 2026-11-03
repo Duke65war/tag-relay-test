@@ -68,15 +68,17 @@ const joinCode=t=>{
  if(h.mode==='outlast'&&h.outlast){
   return code('J',h.gid,h.game,1,120,'none','S','T','S','outlast',h.outlast.startEpoch,time(),h.outlast.targetLat,h.outlast.targetLng,h.outlast.startRadius,OUTLAST_END_RADIUS,h.outlast.step,h.outlast.intervalMin*60000);
  }
- return code('J',h.gid,h.game,h.rules.lives,h.rules.seconds,h.rules.medic,h.rules.a,h.rules.b,t);
+ const baseLoc = t==='A' ? h.baseA : h.baseB;
+ const b = BASES[baseLoc] || {lat:0, lng:0};
+ const sign = t==='A' ? (h.signA||'R1') : (h.signB||'B1');
+ return code('J',h.gid,h.game,h.rules.lives,h.rules.seconds,h.rules.medic,h.rules.a,h.rules.b,t,sign,b.lat,b.lng);
 };
-const baseCode=t=>{const b=BASES[h.baseA&&t==='A'?h.baseA:h.baseB]||{};return code('B',h.gid,t,Math.round((b.lat||0)*1e7),Math.round((b.lng||0)*1e7))};
 const artifactCode=(gunId,artifactId)=>code('A',h.gid,h.game,gunId,artifactId);
 const winnerCode=()=>code('W',h.gid,time());
 function offerCode(){let o=s.offer,r=s.rules;return code('O',s.gid,r.lives,r.seconds,r.medic,r.a,r.b,s.team,s.id,s.name,o.n,o.id,o.at,o.deadline,Math.floor(time()/8000))}
 function returnCode(type,owner,offer){return code(type,s.gid,offer.id,owner.id,owner.name,offer.deadline||0)}
 function thanksCode(offerId,medicId,victimName,deadline){return code('K',s.gid,offerId,medicId,victimName,deadline)}
-function parse(raw){let a;try{a=JSON.parse(String(raw||'').trim())}catch(e){throw Error('Not a valid M.A.S.H. QR')}if(!Array.isArray(a)||a[0]!==V||!['J','B','O','T','H','K','A','W'].includes(a[1]))throw Error('Wrong game QR version or type');return a}
+function parse(raw){let a;try{a=JSON.parse(String(raw||'').trim())}catch(e){throw Error('Not a valid M.A.S.H. QR')}if(!Array.isArray(a)||a[0]!==V||!['J','B','O','T','H','K','A','W','SIGN'].includes(a[1]))throw Error('Wrong game QR version or type');return a}
 function getJoin(raw){
  let a=parse(raw);
  if(a[1]!=='J')throw Error('Not a valid team JOIN QR');
@@ -96,7 +98,14 @@ function getJoin(raw){
   view='preview';render();note('OUTLAST game. Enter your callsign.');
   return;
  }
- if(a.length!==10||!idOK(a[2])||typeof a[3]!=='string'||!/^[A-Z0-9_-]{3,12}$/.test(a[3])||!['A','B'].includes(a[9]))throw Error('Not a valid team JOIN QR');
+ if(a.length>=13&&['A','B'].includes(a[9])){
+  let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8]};
+  if(!ruleOK(rules))throw Error('Invalid game settings');
+  pending={gid:a[2],game:a[3],rules,team:a[9],mode:'standard',baseSign:a[10],baseLat:a[11],baseLng:a[12]};
+  view='preview';render();note('Team assigned by host QR. Enter your callsign.');
+  return;
+ }
+ if(a.length===10||!idOK(a[2])||typeof a[3]!=='string'||!/^[A-Z0-9_-]{3,12}$/.test(a[3])||!['A','B'].includes(a[9]))throw Error('Not a valid team JOIN QR');
  let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8]};
  if(!ruleOK(rules))throw Error('Invalid game settings');
  pending={gid:a[2],game:a[3],rules,team:a[9],mode:'standard'};
@@ -127,9 +136,10 @@ function hostCreate(){
  let a=$('labelA').value.trim().toUpperCase(),b=$('labelB').value.trim().toUpperCase();
  const rules={lives:$('lives').value,seconds:Number($('seconds').value),medic:$('medic').value,a,b};
  const baseA=$('baseA').value,baseB=$('baseB').value;
+ const signA=$('signA').value,signB=$('signB').value;
  if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
- if(baseA===baseB){note('Red and blue bases must be different.');return}
- if(saveHost({version:4,gid:hex(),game,rules,baseA,baseB,mode:'standard',created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
+ if(baseA===baseB){note('Red and blue base locations must be different.');return}
+ if(saveHost({version:4,gid:hex(),game,rules,baseA,baseB,signA,signB,mode:'standard',created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
   view='hostPanel';render();note('Game created.');
  }
 }
@@ -143,6 +153,11 @@ function join(){
   phase:'ACTIVE',offer:null,outbound:null,wins:[],medics:[],seen:[],medPending:null,events:[],
   baseA:h?h.baseA:'',baseB:h?h.baseB:''};
  if(p.mode==='outlast'&&p.outlast)x.outlast=p.outlast;
+ if(p.mode==='standard'){
+   x.baseSign=p.baseSign;
+   x.baseLat=p.baseLat;
+   x.baseLng=p.baseLng;
+ }
  record(x,`Joined ${p.game} [${p.mode||'standard'}], ${p.mode==='outlast'?'OUTLAST':(p.team==='A'?p.rules.a:p.rules.b)}; ${p.mode==='outlast'?outlastRuleText(p.outlast):ruleText(p.rules)}`);
  if(persist(x)){
   pending=null;
@@ -228,10 +243,36 @@ function showWinnerCelebration(){
  const p=document.createElement('p');p.textContent='A 🎯 has been added to your career.';p.style.textAlign='center';area.appendChild(p);
  const dlg=$('dialog');dlg.classList.remove('armoury');dlg.showModal();
 }
-function accept(raw){
+async function accept(raw){
  reconcile();if(!s)throw Error('Join a team first');
  let a=parse(raw);
- if(a[1]==='B'){if(a.length!==6||!idOK(a[2])||a[2]!==s.gid||a[3]!==s.team)throw Error('Wrong game or team base');if(s.mode==='outlast')throw Error('No respawn in OUTLAST');if(s.phase!=='RETURN')throw Error('Only an out player can respawn');edit(x=>{if(x.rules.lives==='U')x.tags[0].status='LIVE';x.phase='ACTIVE';record(x,'Correct team base scan: respawn; finite red lives remain spent')});note('Respawned.');return}
+ if(a[1]==='SIGN'){
+  if(a.length!==3||typeof a[2]!=='string'||!/^[RB][1-5]$/.test(a[2]))throw Error('Malformed sign QR');
+  if(!s.baseSign)throw Error('No sign assigned to your base in this game.');
+  if(s.phase!=='RETURN')throw Error('Only an out player can respawn');
+  if(a[2]!==s.baseSign)throw Error(`Wrong base sign. Expected ${s.baseSign}`);
+  if(!s.baseLat||!s.baseLng)throw Error('Base location not recorded.');
+  try{
+   const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:5000,enableHighAccuracy:true}));
+   const d=distanceMeters(pos.coords.latitude,pos.coords.longitude,s.baseLat,s.baseLng);
+   if(d>50)throw Error(`Too far from base (${Math.round(d)}m). You must be within 50m.`);
+  }catch(err){
+   if(err.message&&err.message.includes('Too far'))throw err;
+   throw Error('GPS check failed. Ensure location is on and try again.');
+  }
+  edit(x=>{if(x.rules.lives==='U')x.tags[0].status='LIVE';x.phase='ACTIVE';record(x,'Correct base sign scan: respawn')});
+  buzz('return');
+  note('Respawned.');
+  return;
+ }
+ if(a[1]==='B'){
+  if(a.length!==6||!idOK(a[2])||a[2]!==s.gid||a[3]!==s.team)throw Error('Wrong game or team base');
+  if(s.mode==='outlast')throw Error('No respawn in OUTLAST');
+  if(s.phase!=='RETURN')throw Error('Only an out player can respawn');
+  edit(x=>{if(x.rules.lives==='U')x.tags[0].status='LIVE';x.phase='ACTIVE';record(x,'Legacy base scan: respawn')});
+  note('Respawned.');
+  return;
+ }
  if(a[1]==='T'||a[1]==='H'){acceptReturn(a);return}
  if(a[1]==='K'){acceptThanks(a);return}
  if(a[1]==='A'){acceptArtifact(a);return}
@@ -269,8 +310,8 @@ function secondsLeft(){let el=$('timer');if(!el||!offered())return;let t=Math.ma
 function refreshOffer(){if(!offered())return;let slot=Math.floor(time()/8000);if(slot===offerSlot)return;offerSlot=slot;let node=$('offerQR');if(node){let text=offerCode();offerShown=text;makeQR(node,text,216)}}
 function hostDraw(type,t,target){if(!HOST_MODE||!h)return;let box=$(target);if(!box)return;box.replaceChildren();let title=document.createElement('h2');
  if(h.mode==='outlast'){title.textContent='OUTLAST JOIN';}
- else{title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) ${type==='J'?'JOIN':'BASE'}`;}
- box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,type==='J'?joinCode(t):baseCode(t));let p=document.createElement('p');p.className='compact';p.textContent=h.mode==='outlast'?'Show to every player. All players are solo.':(type==='J'?'Show only to assigned players.':'Post physically at this team base; a copy can be scanned anywhere.');box.append(p)}
+ else{title.textContent=`${t==='A'?h.rules.a:h.rules.b} (${t==='A'?'RED':'BLUE'}) JOIN`;}
+ box.append(title);let square=document.createElement('div');square.className='qr';box.append(square);makeQR(square,joinCode(t));let p=document.createElement('p');p.className='compact';p.textContent=h.mode==='outlast'?'Show to every player. All players are solo.':'Show only to assigned players.';box.append(p)}
 function renderArtifactCheckboxes(){if(!HOST_MODE)return;const box=$('artifactList');if(!box||!h)return;box.replaceChildren();GUN_ORDER.forEach(gunId=>{const gun=GUNS[gunId];const label=document.createElement('label');const cb=document.createElement('input');cb.type='checkbox';cb.value=gunId;if(h.artifacts&&h.artifacts.includes(gunId))cb.checked=true;label.appendChild(cb);const span=document.createElement('span');span.textContent=gun.name+' ('+gun.tier+')';label.appendChild(span);box.appendChild(label)})}
 function updateOutlastPreview(){if(!HOST_MODE)return;const el=$('olPreview');if(!el)return;const sr=Number($('olStartR').value)||0,st=Number($('olStep').value)||0,iv=Number($('olInterval').value)||0,tm=$('olStartTime').value||'';el.textContent=`Shrinks from ${sr}m to 5m in ${st}m steps every ${iv} min, starting ${tm||'—'}`}
 function defaultOlStartValue(){const pad=n=>String(n).padStart(2,'0');const now=new Date();now.setMinutes(0,0,0);now.setHours(now.getHours()+1);return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`}
@@ -283,14 +324,14 @@ function renderSetup(){
  ['choice','hostForm','hostPanel','joinPanel','preview'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
  if(v==='hostPanel'&&h){
   const hi=$('hostInfo');
-  if(hi)hi.textContent=h.mode==='outlast'?`${h.game} · ${h.gid.slice(0,8)} · ${outlastRuleText(h.outlast)}`:`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} @ ${h.baseA} / BLUE ${h.rules.b} @ ${h.baseB}`;
+  if(hi)hi.textContent=h.mode==='outlast'?`${h.game} · ${h.gid.slice(0,8)} · ${outlastRuleText(h.outlast)}`:`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} (${h.signA||'R1'}) @ ${h.baseA} / BLUE ${h.rules.b} (${h.signB||'B1'}) @ ${h.baseB}`;
   const isOL=h.mode==='outlast';
   const ja=$('hostJA');if(ja)ja.textContent=isOL?'JOIN OUTLAST':'JOIN RED';
   const jb=$('hostJB');if(jb)jb.style.display=isOL?'none':'';
   const hq=$('hostQR');if(hq&&!hq.childNodes.length)hostDraw('J','A','hostQR');
   renderArtifactCheckboxes();
   const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers;
-  const hb=$('hostBaseBtns');if(hb)hb.classList.toggle('hidden',isOL);
+  const hb=$('hostBaseBtns');if(hb)hb.classList.add('hidden');
   const hp=$('hostPlayingSection');if(hp)hp.classList.toggle('hidden',isOL);
   const wm=$('hostWatchMap');if(wm){wm.style.display=isOL?'':'none';if(isOL&&h.outlast){const live=time()>=h.outlast.startEpoch;wm.textContent=live?'👁️ WATCH MAP (LIVE) — GAME IS ON':'👁️ WATCH MAP (LIVE) — STAND BY';wm.className=live?'wide':'wide alt'}}
   const ws=$('winnerSection');
@@ -313,7 +354,7 @@ function renderPlay(){
  const pa=$('playarea');
  if(pa)pa.classList.toggle('teamB',s.team==='B');
  const idEl=$('identity');
- if(idEl)idEl.textContent=s.mode==='outlast'?`${s.name} · OUTLAST · ${s.game} · 2-minute bleedout`: `${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseA:'Blue '+s.rules.b+' @ '+s.baseB} · ${s.game} · ${ruleText(s.rules)}`;
+ if(idEl)idEl.textContent=s.mode==='outlast'?`${s.name} · OUTLAST · ${s.game} · 2-minute bleedout`: `${s.name} · ${s.team==='A'?'Red '+s.rules.a+' @ '+s.baseSign:'Blue '+s.rules.b+' @ '+s.baseSign} · ${s.game} · ${ruleText(s.rules)}`;
  const bar=$('bar');
  if(bar){
   bar.replaceChildren();
@@ -367,7 +408,7 @@ function renderPlay(){
  }else if(ret||dead){
   let head=document.createElement('h2');head.textContent=ret?'RESPAWN AT BASE':'ELIMINATED';st.append(head);
   if(dead){let gif=document.createElement('img');gif.src='./eliminated.gif';gif.alt='Eliminated';gif.style.maxWidth='80%';gif.style.borderRadius='12px';gif.style.margin='10px 0';st.append(gif)}
-  let p=document.createElement('p');p.textContent=ret?'Scan your assigned base. Spent finite lives stay red.':'Leave play safely. Help and history remain below.';st.append(p);
+  let p=document.createElement('p');p.textContent=ret?'Scan your base sign. Spent finite lives stay red.':'Leave play safely. Help and history remain below.';st.append(p);
  }else{
   if(s.mode==='outlast'){
    let p=document.createElement('p');p.className='teamBadge';p.style.background='#3d6b57';p.textContent=`${s.name} · OUTLAST`;st.append(p);
@@ -542,6 +583,19 @@ function showPrintOverlay(){
  saveHost(h);
  const po=$('printOverlay');if(po)po.classList.remove('hidden');
 }
+function printBaseSigns(){
+ if(!HOST_MODE)return;
+ const area=$('printArea');if(!area)return;area.replaceChildren();
+ ['R1','R2','R3','R4','R5','B1','B2','B3','B4','B5'].forEach(id=>{
+  const wrapper=document.createElement('div');wrapper.className='printCard';
+  const title=document.createElement('h3');title.textContent=id;title.style.fontSize='32px';wrapper.appendChild(title);
+  const qbox=document.createElement('div');qbox.className='qr';wrapper.appendChild(qbox);
+  makeQR(qbox,code('SIGN',id),200);
+  const codeEl=document.createElement('p');codeEl.className='code';codeEl.textContent='MU4 · SIGN · '+id;wrapper.appendChild(codeEl);
+  area.appendChild(wrapper);
+ });
+ const po=$('printOverlay');if(po)po.classList.remove('hidden');
+}
 /* --- BOUNDARY WATCH --- */
 function startBoundaryWatch(){
  if(boundaryWatchId!==null)return;
@@ -589,7 +643,7 @@ async function scan(kind,mode){
   scanner=item;
   await item.start({facingMode:'environment'},{fps:10,qrbox:{width:200,height:200}},async text=>{
    if(busy)return;busy=true;await stopScan();
-   try{joinMode?getJoin(text):accept(text)}catch(e){note(e.message)}
+   try{ await (joinMode?getJoin(text):accept(text)) }catch(e){note(e.message)}
   },()=>{});
  }catch(e){note('Camera error: '+((e&&e.message)?e.message:String(e)||'unknown'));await stopScan()}
 }
@@ -630,6 +684,7 @@ if(HOST_MODE){
  $('eraseHost').onclick=()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone?')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}};
  $('unlockCareers').onchange=e=>{if(!h)return;h.unlockCareers=e.target.checked;saveHost(h);note(e.target.checked?'Career unlock ON':'Career unlock OFF')};
  $('genArtifacts').onclick=()=>{if(!h)return;const checked=[];document.querySelectorAll('#artifactList input:checked').forEach(cb=>checked.push(cb.value));if(checked.length===0){note('Tick at least one artifact');return}h.artifacts=checked;if(!h.artifactIds)h.artifactIds={};checked.forEach(gunId=>{if(!h.artifactIds[gunId])h.artifactIds[gunId]=hex().slice(0,16)});saveHost(h);showPrintOverlay()};
+ const gbs=$('genBaseSignsHome');if(gbs)gbs.onclick=printBaseSigns;
  const sw=$('showWinnerQR');
  if(sw)sw.onclick=()=>{
   if(!h||h.mode!=='outlast')return;
@@ -645,7 +700,7 @@ if(HOST_MODE){
 }
 function applyHostMode(){
  const isOutlast=hostMode==='outlast';
- ['livesLabel','secondsLabel','medicLabel','basesRow'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ ['livesLabel','secondsLabel','medicLabel','basesRow','basesLocRow'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
  const la=$('labelA');if(la){const row=la.closest('.row');if(row)row.style.display=isOutlast?'none':''}
  const op=$('outlastPanel');if(op)op.classList.toggle('hidden',!isOutlast);
  const ms=$('modeStandard'),mo=$('modeOutlast');
@@ -797,7 +852,7 @@ function applyHostMode(){
 })();
 function openMapForTarget(){if(window._openMapForTarget)window._openMapForTarget()}
 /* --- INIT --- */
-(function(){const ba=$('baseA'),bb=$('baseB');if(!ba||!bb)return;const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia'})();
+(function(){const ba=$('baseA'),bb=$('baseB'),sa=$('signA'),sb=$('signB');if(!ba||!bb||!sa||!sb)return;const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia';for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;sa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;sb.appendChild(rb)}sa.value='R1';sb.value='B1';})();
 (function(){const lv=$('lives');if(!lv)return;for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;lv.append(x)}})();
 if(HOST_MODE){
  try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid))throw Error('host');h=x;if(!h.mode)h.mode='standard';view='hostPanel'}}catch(e){note('Saved host game unreadable.')}
