@@ -89,10 +89,11 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 <section id="setup" class="card">
   <div id="choice">
     <h2>Start or join</h2>
-    <button id="hostOpen" class="wide">HOST: CREATE GAME</button>
+    <button id="hostOpen" class="wide">HOST: CREATE SINGLE GAME</button>
+    <button id="hostBatchOpen" class="wide">HOST: CREATE BATCH</button>
     <button id="joinOpen" class="wide alt">PLAYER: SCAN TEAM JOIN QR</button>
     <button id="genBaseSignsHome" class="wide alt">🖨️ PRINT 10 BASE SIGNS</button>
-    <button id="armouryOpen" class="wide alt">🎒 MY ARMOURY</button>
+    <button id="armouryOpen" class="wide alt">🪖 MY ARMOURY</button>
     <button id="demoOpen" class="wide alt">🧪 TRY A DEMO</button>
   </div>
   <div id="hostForm" class="hidden">
@@ -128,6 +129,48 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <p class="compact muted">Use a unique game name each week. It becomes the pattern name on every artifact found in this game.</p>
     <button id="create" class="wide">CREATE GAME &amp; LOCK RULES</button>
     <button id="hostBack" class="wide alt">Back</button>
+  </div>
+  <div id="hostBatchForm" class="hidden">
+    <h2>Create Batch</h2>
+    <label>Batch Date<input id="batchDate" type="date"></label>
+    <div class="card" style="margin:8px 0">
+      <h3 style="margin-top:0">Game Details</h3>
+      <label>Game name<input id="batchGameName" maxlength="12" value="WAR1"></label>
+      <label>Start time<input id="batchGameTime" type="time" value="10:30"></label>
+      <label>Lives<select id="batchLives"><option value="U">Unlimited</option></select></label>
+      <label>Bleedout seconds<input id="batchSeconds" type="number" min="30" max="600" step="1" value="300"></label>
+      <label>Medic rule<select id="batchMedic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
+      <div class="row"><label>Red label<input id="batchLabelA" maxlength="12" value="A"></label><label>Blue label<input id="batchLabelB" maxlength="12" value="B"></label></div>
+      <div class="row">
+        <label>Red Sign<select id="batchSignA"></select></label>
+        <label>Blue Sign<select id="batchSignB"></select></label>
+      </div>
+      <div class="row">
+        <label>Red Base<select id="batchBaseA"></select></label>
+        <label>Blue Base<select id="batchBaseB"></select></label>
+      </div>
+      <button id="addGameToBatch" class="wide alt">ADD TO BATCH</button>
+    </div>
+    
+    <h3>Games in Batch</h3>
+    <div id="batchList" style="margin-bottom:12px; padding:8px; background:#0e1c17; border-radius:6px; font-size:14px;"></div>
+    
+    <button id="genBatchQRs" class="wide">GENERATE BATCH QRs</button>
+    <button id="batchBack" class="wide alt">Back</button>
+  </div>
+  <div id="hostBatchPanel" class="hidden">
+    <h2>Batch QR Codes</h2>
+    <p id="batchInfo" class="compact"></p>
+    <p class="compact">Show RED to red team, BLUE to blue team.</p>
+    <div class="card">
+      <h3 style="margin-top:0;color:#ff5963">RED BATCH</h3>
+      <div id="batchRedQR" class="qr"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;color:#4da6ff">BLUE BATCH</h3>
+      <div id="batchBlueQR" class="qr"></div>
+    </div>
+    <button id="batchPanelBack" class="wide alt">Back to Menu</button>
   </div>
   <div id="hostPanel" class="hidden">
     <h2>Host QR codes</h2>
@@ -179,7 +222,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   <section class="card">
     <div class="row">
       <button id="mapButton" class="alt">🗺️ MAP</button>
-      <button id="armouryPlayBtn" class="alt">🎒 ARMOURY</button>
+      <button id="armouryPlayBtn" class="alt">🪖 ARMOURY</button>
     </div>
   </section>
   <section class="card"><h2>Tag Collection</h2><div id="trophies"></div><div id="medals"></div></section>
