@@ -133,21 +133,34 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   <div id="hostBatchForm" class="hidden">
     <h2>Create Batch</h2>
     <label>Batch Date<input id="batchDate" type="date"></label>
+    <div class="row" style="margin-bottom:8px">
+      <button id="batchModeStandard" class="wide">STANDARD</button>
+      <button id="batchModeOutlast" class="wide alt">OUTLAST</button>
+    </div>
     <div class="card" style="margin:8px 0">
       <h3 style="margin-top:0">Game Details</h3>
       <label>Game name<input id="batchGameName" maxlength="12" value="WAR1"></label>
       <label>Start time<input id="batchGameTime" type="time" value="10:30"></label>
-      <label>Lives<select id="batchLives"><option value="U">Unlimited</option></select></label>
-      <label>Bleedout seconds<input id="batchSeconds" type="number" min="30" max="600" step="1" value="300"></label>
-      <label>Medic rule<select id="batchMedic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
-      <div class="row"><label>Red label<input id="batchLabelA" maxlength="12" value="A"></label><label>Blue label<input id="batchLabelB" maxlength="12" value="B"></label></div>
-      <div class="row">
+      <div id="batchStandardFields">
+        <label>Lives<select id="batchLives"><option value="U">Unlimited</option></select></label>
+        <label>Bleedout seconds<input id="batchSeconds" type="number" min="30" max="600" step="1" value="300"></label>
+        <label>Medic rule<select id="batchMedic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
+        <div class="row"><label>Red label<input id="batchLabelA" maxlength="12" value="A"></label><label>Blue label<input id="batchLabelB" maxlength="12" value="B"></label></div>
+      </div>
+      <div id="batchStandardSigns" class="row">
         <label>Red Sign<select id="batchSignA"></select></label>
         <label>Blue Sign<select id="batchSignB"></select></label>
       </div>
-      <div class="row">
+      <div id="batchStandardBases" class="row">
         <label>Red Base<select id="batchBaseA"></select></label>
         <label>Blue Base<select id="batchBaseB"></select></label>
+      </div>
+      <div id="batchOutlastFields" class="hidden">
+        <button id="batchPickTarget" class="wide alt">📍 TAP MAP TO PLACE TARGET</button>
+        <p class="compact muted" id="batchTargetInfo">No target set</p>
+        <label>Start radius (m)<input id="batchOlStartR" type="number" min="20" max="500" step="5" value="100"></label>
+        <label>Shrink step (m)<input id="batchOlStep" type="number" min="5" max="100" step="5" value="20"></label>
+        <label>Interval (min)<input id="batchOlInterval" type="number" min="1" max="30" step="1" value="10"></label>
       </div>
       <button id="addGameToBatch" class="wide alt">ADD TO BATCH</button>
     </div>
