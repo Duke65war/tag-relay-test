@@ -37,7 +37,7 @@ const FIVE_WEEKS=5*7*24*60*60*1000,EIGHT_WEEKS=8*7*24*60*60*1000;
 const OUTLAST_BLEEDOUT=120000;
 const OUTLAST_END_RADIUS=5;
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null,career=null;
-let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null;
+let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null,hostBatch=[],hostBatchDate='';
 let lastOutlastLive=null,lastOutlastStep=null,lastHostOutlastLive=null,lastHostOutlastStep=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,12}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
 const ruleOK=r=>r&&(/^(U|[1-9]|1[0-9]|20)$/.test(String(r.lives)))&&Number.isInteger(r.seconds)&&r.seconds>=30&&r.seconds<=600&&['none','one','two'].includes(r.medic)&&labelOK(r.a)&&labelOK(r.b)&&r.a!==r.b;
@@ -64,21 +64,24 @@ function playerHostNow(){if(!s?.outlast?.offset)return time();return time()+s.ou
 function currentRadius(o,hostNow){if(!o)return null;if(hostNow<o.startEpoch)return o.startRadius;const elapsed=hostNow-o.startEpoch;const iv=o.intervalMs||(o.intervalMin?o.intervalMin*60000:60000);const steps=Math.floor(elapsed/iv);const r=o.startRadius-steps*o.step;return Math.max(o.endRadius,r)}
 /* --- QR CODES --- */
 const code=(type,...values)=>JSON.stringify([V,type,...values]);
+const joinArray=(gd,t)=>{
+ const baseLoc = t==='A' ? gd.baseA : gd.baseB;
+ const b = BASES[baseLoc] || {lat:0, lng:0};
+ const sign = t==='A' ? (gd.signA||'R1') : (gd.signB||'B1');
+ return [V,'J',gd.gid,gd.game,gd.rules.lives,gd.rules.seconds,gd.rules.medic,gd.rules.a,gd.rules.b,t,sign,b.lat,b.lng];
+};
 const joinCode=t=>{
  if(h.mode==='outlast'&&h.outlast){
   return code('J',h.gid,h.game,1,120,'none','S','T','S','outlast',h.outlast.startEpoch,time(),h.outlast.targetLat,h.outlast.targetLng,h.outlast.startRadius,OUTLAST_END_RADIUS,h.outlast.step,h.outlast.intervalMin*60000);
  }
- const baseLoc = t==='A' ? h.baseA : h.baseB;
- const b = BASES[baseLoc] || {lat:0, lng:0};
- const sign = t==='A' ? (h.signA||'R1') : (h.signB||'B1');
- return code('J',h.gid,h.game,h.rules.lives,h.rules.seconds,h.rules.medic,h.rules.a,h.rules.b,t,sign,b.lat,b.lng);
+ return JSON.stringify(joinArray(h,t));
 };
 const artifactCode=(gunId,artifactId)=>code('A',h.gid,h.game,gunId,artifactId);
 const winnerCode=()=>code('W',h.gid,time());
 function offerCode(){let o=s.offer,r=s.rules;return code('O',s.gid,r.lives,r.seconds,r.medic,r.a,r.b,s.team,s.id,s.name,o.n,o.id,o.at,o.deadline,Math.floor(time()/8000))}
 function returnCode(type,owner,offer){return code(type,s.gid,offer.id,owner.id,owner.name,offer.deadline||0)}
 function thanksCode(offerId,medicId,victimName,deadline){return code('K',s.gid,offerId,medicId,victimName,deadline)}
-function parse(raw){let a;try{a=JSON.parse(String(raw||'').trim())}catch(e){throw Error('Not a valid M.A.S.H. QR')}if(!Array.isArray(a)||a[0]!==V||!['J','B','O','T','H','K','A','W','SIGN'].includes(a[1]))throw Error('Wrong game QR version or type');return a}
+function parse(raw){let a;try{a=JSON.parse(String(raw||'').trim())}catch(e){throw Error('Not a valid M.A.S.H. QR')}if(!Array.isArray(a)||a[0]!==V||!['J','B','O','T','H','K','A','W','SIGN','BATCH'].includes(a[1]))throw Error('Wrong game QR version or type');return a}
 function getJoin(raw){
  let a=parse(raw);
  if(a[1]!=='J')throw Error('Not a valid team JOIN QR');
@@ -142,6 +145,67 @@ function hostCreate(){
  if(saveHost({version:4,gid:hex(),game,rules,baseA,baseB,signA,signB,mode:'standard',created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
   view='hostPanel';render();note('Game created.');
  }
+}
+function addGameToBatch(){
+ const game=$('batchGameName').value.trim().toUpperCase();
+ const timeStr=$('batchGameTime').value;
+ const gameDate=hostBatchDate;
+ if(!gameDate){note('Pick a date first');return}
+ if(!timeStr){note('Set a start time');return}
+ const startEpoch=new Date(gameDate+'T'+timeStr).getTime();
+ if(isNaN(startEpoch)){note('Invalid date/time');return}
+ if(startEpoch<time()-60000){note('Start time is in the past');return}
+ if(hostBatch.some(g=>g.game===game)){note('Game name already used in this batch');return}
+ 
+ const rules={lives:$('batchLives').value,seconds:Number($('batchSeconds').value),medic:$('batchMedic').value,a:$('batchLabelA').value.trim().toUpperCase(),b:$('batchLabelB').value.trim().toUpperCase()};
+ const baseA=$('batchBaseA').value,baseB=$('batchBaseB').value;
+ const signA=$('batchSignA').value,signB=$('batchSignB').value;
+ 
+ if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
+ if(baseA===baseB){note('Red and blue base locations must be different.');return}
+ if(hostBatch.some(g=>g.signA===signA||g.signB===signA)){note(`Sign ${signA} is already used in another game.`);return}
+ if(hostBatch.some(g=>g.signA===signB||g.signB===signB)){note(`Sign ${signB} is already used in another game.`);return}
+ 
+ hostBatch.push({game,gid:hex(),startEpoch,rules,baseA,baseB,signA,signB});
+ hostBatch.sort((a,b)=>a.startEpoch-b.startEpoch);
+ renderBatchList();
+ $('batchGameName').value='';
+}
+function renderBatchList(){
+ const list=$('batchList');if(!list)return;
+ list.replaceChildren();
+ if(!hostBatch.length){list.textContent='No games added yet.';return}
+ hostBatch.forEach((g,i)=>{
+  let div=document.createElement('div');div.style.cssText='background:#30443a;padding:8px;margin:4px 0;border-radius:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;';
+  let time=new Date(g.startEpoch).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">Red: ${g.signA} @ ${g.baseA} · Blue: ${g.signB} @ ${g.baseB}</span></div>`;
+  let btn=document.createElement('button');btn.textContent='✕';btn.className='danger';btn.style.cssText='padding:4px 8px; min-height:auto; font-size:12px;';btn.onclick=()=>{hostBatch.splice(i,1);renderBatchList();};
+  div.appendChild(btn);
+  list.appendChild(div);
+ });
+}
+function generateBatchQR(){
+ if(!hostBatch.length){note('Add at least one game');return}
+ const d=new Date(hostBatchDate);
+ const day=d.getDay();
+ if(day>=2&&day<=5){
+  if(!confirm(`You selected a ${d.toLocaleDateString([], {weekday:'long'})}. Are you sure?`)) return;
+ }
+ const firstGame=hostBatch[0];
+ const firstHour=new Date(firstGame.startEpoch).getHours();
+ if(firstHour>=12||firstHour<8){
+  if(!confirm('No morning game detected (08:00-11:30). Proceed anyway?')) return;
+ }
+ const redPayload=[V,'BATCH',[]];
+ const bluePayload=[V,'BATCH',[]];
+ hostBatch.forEach(g=>{
+  redPayload[2].push(joinArray(g,'A'));
+  bluePayload[2].push(joinArray(g,'B'));
+ });
+ view='hostBatchPanel';render();
+ makeQR($('batchRedQR'),JSON.stringify(redPayload),216);
+ makeQR($('batchBlueQR'),JSON.stringify(bluePayload),216);
+ $('batchInfo').textContent=`${hostBatch.length} games loaded for ${new Date(hostBatchDate).toLocaleDateString([], {weekday:'long',month:'short',day:'numeric'})}`;
 }
 function join(){
  if(!pending||s)return;
@@ -246,6 +310,11 @@ function showWinnerCelebration(){
 async function accept(raw){
  reconcile();if(!s)throw Error('Join a team first');
  let a=parse(raw);
+ if(a[1]==='BATCH'){
+   if(!Array.isArray(a[2]))throw Error('Malformed batch');
+   note('Batch QRs are for initial setup. Tap MY GAMES to load them.');
+   return;
+ }
  if(a[1]==='SIGN'){
   if(a.length!==3||typeof a[2]!=='string'||!/^[RB][1-5]$/.test(a[2]))throw Error('Malformed sign QR');
   if(!s.baseSign)throw Error('No sign assigned to your base in this game.');
@@ -321,7 +390,7 @@ function renderSetup(){
  if(pl)pl.classList.toggle('hidden',!s);
  if(s)return;
  let v=(HOST_MODE&&h&&view==='choice')?'hostPanel':view;
- ['choice','hostForm','hostPanel','joinPanel','preview'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
+ ['choice','hostForm','hostPanel','joinPanel','preview','hostBatchForm','hostBatchPanel'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
  if(v==='hostPanel'&&h){
   const hi=$('hostInfo');
   if(hi)hi.textContent=h.mode==='outlast'?`${h.game} · ${h.gid.slice(0,8)} · ${outlastRuleText(h.outlast)}`:`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} (${h.signA||'R1'}) @ ${h.baseA} / BLUE ${h.rules.b} (${h.signB||'B1'}) @ ${h.baseB}`;
@@ -668,6 +737,20 @@ $('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
 /* --- HOST-ONLY BINDINGS --- */
 if(HOST_MODE){
  $('hostOpen').onclick=()=>{view='hostForm';hostMode='standard';hostTarget=null;applyHostMode();const el=$('olStartTime');if(el&&!el.value)el.value=defaultOlStartValue();render()};
+ $('hostBatchOpen').onclick=()=>{
+  view='hostBatchForm';
+  hostBatch=[]; 
+  let d=new Date(); d.setDate(d.getDate()+((7-d.getDay())%7||7));
+  hostBatchDate=d.toISOString().split('T')[0];
+  $('batchDate').value=hostBatchDate;
+  renderBatchList();
+  render();
+ };
+ $('addGameToBatch').onclick=addGameToBatch;
+ $('batchDate').onchange=e=>{hostBatchDate=e.target.value;};
+ $('genBatchQRs').onclick=generateBatchQR;
+ $('batchBack').onclick=()=>{view='choice';render()};
+ $('batchPanelBack').onclick=()=>{view='choice';render()};
  $('hostBack').onclick=()=>{view='choice';render()};
  $('create').onclick=hostCreate;
  const ms=$('modeStandard'),mo=$('modeOutlast');
@@ -852,8 +935,10 @@ function applyHostMode(){
 })();
 function openMapForTarget(){if(window._openMapForTarget)window._openMapForTarget()}
 /* --- INIT --- */
-(function(){const ba=$('baseA'),bb=$('baseB'),sa=$('signA'),sb=$('signB');if(!ba||!bb||!sa||!sb)return;const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia';for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;sa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;sb.appendChild(rb)}sa.value='R1';sb.value='B1';})();
-(function(){const lv=$('lives');if(!lv)return;for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;lv.append(x)}})();
+(function(){const ba=$('baseA'),bb=$('baseB'),sa=$('signA'),sb=$('signB');if(!ba||!bb||!sa||!sb)return;const main=Object.keys(BASES).filter(k=>BASES[k].group==='main');const sec=Object.keys(BASES).filter(k=>BASES[k].group==='secondary');const safe=Object.keys(BASES).filter(k=>BASES[k].group==='safe');function opt(parent,keys){keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;parent.appendChild(o)})}opt(ba,main);opt(ba,sec);opt(ba,safe);opt(bb,main);opt(bb,sec);opt(bb,safe);ba.value='Church';bb.value='Diego Garcia';for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;sa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;sb.appendChild(rb)}sa.value='R1';sb.value='B1';
+ const bsa=$('batchSignA'),bsb=$('batchSignB'),bba=$('batchBaseA'),bbb=$('batchBaseB');if(bsa&&bsb&&bba&&bbb){for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;bsa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;bsb.appendChild(rb)}opt(bba,main);opt(bba,sec);opt(bba,safe);opt(bbb,main);opt(bbb,sec);opt(bbb,safe);bsa.value='R1';bsb.value='B1';bba.value='Church';bbb.value='Diego Garcia';}
+})();
+(function(){const lv=$('lives'),blv=$('batchLives');['lives','batchLives'].forEach(id=>{const el=$(id);if(!el)return;for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;el.append(x)}})})();
 if(HOST_MODE){
  try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid))throw Error('host');h=x;if(!h.mode)h.mode='standard';view='hostPanel'}}catch(e){note('Saved host game unreadable.')}
 }
