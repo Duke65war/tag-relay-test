@@ -79,7 +79,7 @@ const joinCode=t=>{
  }
  return JSON.stringify(joinArray(h,t));
 };
-const artifactCode=(gunId,artifactId)=>code('A',h.gid,h.game,gunId,artifactId);
+const artifactCode=(gunId,artifactId,gid,game)=>code('A',gid,game,gunId,artifactId);
 const winnerCode=()=>code('W',h.gid,time());
 function offerCode(){let o=s.offer,r=s.rules;return code('O',s.gid,r.lives,r.seconds,r.medic,r.a,r.b,s.team,s.id,s.name,o.n,o.id,o.at,o.deadline,Math.floor(time()/8000))}
 function returnCode(type,owner,offer){return code(type,s.gid,offer.id,owner.id,owner.name,offer.deadline||0)}
@@ -92,7 +92,7 @@ function getJoin(raw){
  if(h&&h.gid!==a[2])throw Error('Host setup belongs to another game');
  if(a.length>=19&&a[10]==='outlast'){
   const gid=a[2],game=a[3];
-  if(!idOK(gid)||typeof game!=='string'||!/^[A-Z0-9_-]{3,12}$/.test(game))throw Error('Invalid game');
+  if(!idOK(gid)||typeof game!=='string'||!/^[A-Z0-9 _-]{3,18}$/.test(game))throw Error('Invalid game');
   const startEpoch=a[11],hostNow=a[12],targetLat=a[13],targetLng=a[14],startRadius=a[15],endRadius=a[16],step=a[17],intervalMs=a[18];
   if(!Number.isFinite(startEpoch)||!Number.isFinite(hostNow)||!Number.isFinite(targetLat)||!Number.isFinite(targetLng))throw Error('Invalid OUTLAST data');
   if(!Number.isFinite(startRadius)||!Number.isFinite(endRadius)||!Number.isFinite(step)||!Number.isFinite(intervalMs))throw Error('Invalid OUTLAST schedule');
@@ -111,7 +111,7 @@ function getJoin(raw){
   view='preview';render();note('Team assigned by host QR. Enter your callsign.');
   return;
  }
- if(a.length===10||!idOK(a[2])||typeof a[3]!=='string'||!/^[A-Z0-9_-]{3,12}$/.test(a[3])||!['A','B'].includes(a[9]))throw Error('Not a valid team JOIN QR');
+ if(a.length===10||!idOK(a[2])||typeof a[3]!=='string'||!/^[A-Z0-9 _-]{3,18}$/.test(a[3])||!['A','B'].includes(a[9]))throw Error('Not a valid team JOIN QR');
  let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8]};
  if(!ruleOK(rules))throw Error('Invalid game settings');
  pending={gid:a[2],game:a[3],rules,team:a[9],mode:'standard'};
@@ -123,7 +123,7 @@ function hostCreate(){
  let game=$('game').value.trim().toUpperCase();
  if(hostMode==='outlast'){
   if(!hostTarget){note('Set target on map first.');return}
-  if(!/^[A-Z0-9_-]{3,12}$/.test(game)){note('Game: 3–12 letters/numbers.');return}
+  if(!/^[A-Z0-9 _-]{3,18}$/.test(game)){note('Game: 3–18 letters/numbers.');return}
   const startRadius=Number($('olStartR').value),step=Number($('olStep').value),intervalMin=Number($('olInterval').value),startTimeStr=$('olStartTime').value;
   if(!Number.isFinite(startRadius)||startRadius<20||startRadius>500){note('Start radius 20–500m');return}
   if(!Number.isFinite(step)||step<5||step>100){note('Step 5–100m');return}
@@ -143,11 +143,26 @@ function hostCreate(){
  const rules={lives:$('lives').value,seconds:Number($('seconds').value),medic:$('medic').value,a,b};
  const baseA=$('baseA').value,baseB=$('baseB').value;
  const signA=$('signA').value,signB=$('signB').value;
- if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
+ if(!/^[A-Z0-9 _-]{3,18}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
  if(baseA===baseB){note('Red and blue base locations must be different.');return}
  if(saveHost({version:4,gid:hex(),game,rules,baseA,baseB,signA,signB,mode:'standard',created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
   view='hostPanel';render();note('Game created.');
  }
+}
+function renderBatchArtifactCheckboxes(){
+ const box=$('batchArtifactList');if(!box)return;
+ box.replaceChildren();
+ GUN_ORDER.forEach(gunId=>{
+   const gun=GUNS[gunId];
+   const label=document.createElement('label');
+   const cb=document.createElement('input');
+   cb.type='checkbox';cb.value=gunId;
+   label.appendChild(cb);
+   const span=document.createElement('span');
+   span.textContent=gun.name+' ('+gun.tier+')';
+   label.appendChild(span);
+   box.appendChild(label);
+ });
 }
 function addGameToBatch(){
  const game=$('batchGameName').value.trim().toUpperCase();
@@ -160,22 +175,24 @@ function addGameToBatch(){
  if(startEpoch<time()-60000){note('Start time is in the past');return}
  if(hostBatch.some(g=>g.game===game)){note('Game name already used in this batch');return}
  
+ const checked=[];document.querySelectorAll('#batchArtifactList input:checked').forEach(cb=>checked.push(cb.value));
+ 
  if(batchMode==='outlast'){
    if(!batchTarget){note('Set target on map first.');return}
    const startRadius=Number($('batchOlStartR').value),step=Number($('batchOlStep').value),intervalMin=Number($('batchOlInterval').value);
    if(!Number.isFinite(startRadius)||startRadius<20||startRadius>500){note('Start radius 20–500m');return}
    if(!Number.isFinite(step)||step<5||step>100){note('Step 5–100m');return}
    if(!Number.isFinite(intervalMin)||intervalMin<1||intervalMin>30){note('Interval 1–30 min');return}
-   hostBatch.push({game,gid:hex(),startEpoch,mode:'outlast',targetLat:batchTarget.lat,targetLng:batchTarget.lng,startRadius,step,intervalMs:intervalMin*60000});
+   hostBatch.push({game,gid:hex(),startEpoch,mode:'outlast',targetLat:batchTarget.lat,targetLng:batchTarget.lng,startRadius,step,intervalMs:intervalMin*60000,artifacts:checked});
  } else {
    const rules={lives:$('batchLives').value,seconds:Number($('batchSeconds').value),medic:$('batchMedic').value,a:$('batchLabelA').value.trim().toUpperCase(),b:$('batchLabelB').value.trim().toUpperCase()};
    const baseA=$('batchBaseA').value,baseB=$('batchBaseB').value;
    const signA=$('batchSignA').value,signB=$('batchSignB').value;
-   if(!/^[A-Z0-9_-]{3,12}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
+   if(!/^[A-Z0-9 _-]{3,18}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
    if(baseA===baseB){note('Red and blue base locations must be different.');return}
    if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signA||g.signB===signA))){note(`Sign ${signA} is already used in another game.`);return}
    if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signB||g.signB===signB))){note(`Sign ${signB} is already used in another game.`);return}
-   hostBatch.push({game,gid:hex(),startEpoch,mode:'standard',rules,baseA,baseB,signA,signB});
+   hostBatch.push({game,gid:hex(),startEpoch,mode:'standard',rules,baseA,baseB,signA,signB,artifacts:checked});
  }
  hostBatch.sort((a,b)=>a.startEpoch-b.startEpoch);
  renderBatchList();
@@ -192,7 +209,8 @@ function renderBatchList(){
   let div=document.createElement('div');div.style.cssText='background:#30443a;padding:8px;margin:4px 0;border-radius:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;';
   let time=new Date(g.startEpoch).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   let details = g.mode==='outlast' ? `OUTLAST · ${g.startRadius}m → 5m` : `Red: ${g.signA} @ ${g.baseA} · Blue: ${g.signB} @ ${g.baseB}`;
-  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">${details}</span></div>`;
+  let artText = g.artifacts && g.artifacts.length ? `<br><span class="compact" style="color:#ffd653">Artifacts: ${g.artifacts.length}</span>` : '';
+  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">${details}</span>${artText}</div>`;
   let btn=document.createElement('button');btn.textContent='✕';btn.className='danger';btn.style.cssText='padding:4px 8px; min-height:auto; font-size:12px;';btn.onclick=()=>{hostBatch.splice(i,1);renderBatchList();};
   div.appendChild(btn);
   list.appendChild(div);
@@ -212,14 +230,39 @@ function generateBatchQR(){
  }
  const redPayload=[V,'BATCH',[]];
  const bluePayload=[V,'BATCH',[]];
+ let hasArtifacts = false;
  hostBatch.forEach(g=>{
   redPayload[2].push(joinArray(g,'A'));
   bluePayload[2].push(joinArray(g,'B'));
+  if(g.artifacts && g.artifacts.length > 0) hasArtifacts = true;
  });
  view='hostBatchPanel';render();
  makeQR($('batchRedQR'),JSON.stringify(redPayload),216);
  makeQR($('batchBlueQR'),JSON.stringify(bluePayload),216);
  $('batchInfo').textContent=`${hostBatch.length} games loaded for ${new Date(hostBatchDate).toLocaleDateString([], {weekday:'long',month:'short',day:'numeric'})}`;
+ $('printBatchArtifactsBtn').style.display = hasArtifacts ? '' : 'none';
+}
+function printBatchArtifacts(){
+ const area=$('printArea');if(!area)return;area.replaceChildren();
+ let hasAny = false;
+ hostBatch.forEach(g=>{
+   if(g.artifacts && g.artifacts.length > 0){
+     hasAny = true;
+     g.artifacts.forEach(gunId=>{
+       const gun=GUNS[gunId];
+       const artifactId=hex().slice(0,16);
+       const wrapper=document.createElement('div');wrapper.className='printCard';
+       const img=document.createElement('img');img.src=gun.img;img.alt=gun.name;wrapper.appendChild(img);
+       const title=document.createElement('h3');title.textContent=gun.name+' | '+g.game;wrapper.appendChild(title);
+       const qbox=document.createElement('div');qbox.className='qr';wrapper.appendChild(qbox);
+       makeQR(qbox,artifactCode(gunId,artifactId,g.gid,g.game),200);
+       const codeEl=document.createElement('p');codeEl.className='code';codeEl.textContent='MU4 · '+artifactId;wrapper.appendChild(codeEl);
+       area.appendChild(wrapper);
+     });
+   }
+ });
+ if(!hasAny){note('No artifacts selected in any batch games');return}
+ const po=$('printOverlay');if(po)po.classList.remove('hidden');
 }
 function join(){
  if(!pending||s)return;
@@ -296,7 +339,7 @@ function acceptArtifact(a){
  if(a[2]!==s.gid)throw Error('Artifact belongs to a different game');
  const gunId=a[4];if(!GUNS[gunId])throw Error('Unknown artifact');
  const artifactId=a[5];if(typeof artifactId!=='string'||!/^[0-9a-f]{12,24}$/.test(artifactId))throw Error('Invalid artifact');
- const gameName=a[3];if(typeof gameName!=='string'||gameName.length<1||gameName.length>12)throw Error('Invalid game name');
+ const gameName=a[3];if(typeof gameName!=='string'||gameName.length<1||gameName.length>18)throw Error('Invalid game name');
  if(careerHas(artifactId))throw Error('Already collected');
  if(careerAdd(gunId,gameName,artifactId)){const g=GUNS[gunId];buzz('return');note(`Collected ${g.name} | ${gameName}`);return}
  throw Error('Could not add artifact');
@@ -659,7 +702,7 @@ function showPrintOverlay(){
   const img=document.createElement('img');img.src=gun.img;img.alt=gun.name;wrapper.appendChild(img);
   const title=document.createElement('h3');title.textContent=gun.name+' | '+h.game;wrapper.appendChild(title);
   const qbox=document.createElement('div');qbox.className='qr';wrapper.appendChild(qbox);
-  makeQR(qbox,artifactCode(gunId,artifactId),200);
+  makeQR(qbox,artifactCode(gunId,artifactId,h.gid,h.game),200);
   const codeEl=document.createElement('p');codeEl.className='code';codeEl.textContent='MU4 · '+artifactId;wrapper.appendChild(codeEl);
   area.appendChild(wrapper);
  });
@@ -759,12 +802,14 @@ if(HOST_MODE){
   hostBatchDate=d.toISOString().split('T')[0];
   $('batchDate').value=hostBatchDate;
   renderBatchList();
+  renderBatchArtifactCheckboxes();
   applyBatchMode();
   render();
  };
  $('addGameToBatch').onclick=addGameToBatch;
  $('batchDate').onchange=e=>{hostBatchDate=e.target.value;};
  $('genBatchQRs').onclick=generateBatchQR;
+ $('printBatchArtifactsBtn').onclick=printBatchArtifacts;
  $('batchBack').onclick=()=>{view='choice';render()};
  $('batchPanelBack').onclick=()=>{view='choice';render()};
  const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
@@ -815,7 +860,7 @@ function applyHostMode(){
 }
 function applyBatchMode(){
  const isOutlast=batchMode==='outlast';
- ['batchStandardFields','batchStandardSigns'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ ['batchStandardFields','batchStandardSigns','batchStandardBases'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
  const op=$('batchOutlastFields');if(op)op.classList.toggle('hidden',!isOutlast);
  const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
  if(bms)bms.className=isOutlast?'wide alt':'wide';
