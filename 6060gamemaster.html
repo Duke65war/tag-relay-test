@@ -102,9 +102,9 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
       <button id="modeStandard" class="wide">STANDARD</button>
       <button id="modeOutlast" class="wide alt">OUTLAST</button>
     </div>
-    <label>Game name<input id="game" maxlength="12" value="WAR1"></label>
+    <label>Game name<input id="game" maxlength="18" value="WAR1"></label>
     <label id="livesLabel">Lives<select id="lives"><option value="U">Unlimited</option></select></label>
-    <label id="secondsLabel">Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="300"></label>
+    <label id="secondsLabel">Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="60"></label>
     <label id="medicLabel">Medic rule<select id="medic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
     <div class="row"><label>Red team label (A)<input id="labelA" maxlength="12" value="A"></label><label>Blue team label (B)<input id="labelB" maxlength="12" value="B"></label></div>
     <div class="row" id="basesRow">
@@ -139,11 +139,11 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     </div>
     <div class="card" style="margin:8px 0">
       <h3 style="margin-top:0">Game Details</h3>
-      <label>Game name<input id="batchGameName" maxlength="12" value="WAR1"></label>
+      <label>Game name<input id="batchGameName" maxlength="18" value="WAR1"></label>
       <label>Start time<input id="batchGameTime" type="time" value="10:30"></label>
       <div id="batchStandardFields">
         <label>Lives<select id="batchLives"><option value="U">Unlimited</option></select></label>
-        <label>Bleedout seconds<input id="batchSeconds" type="number" min="30" max="600" step="1" value="300"></label>
+        <label>Bleedout seconds<input id="batchSeconds" type="number" min="30" max="600" step="1" value="60"></label>
         <label>Medic rule<select id="batchMedic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
         <div class="row"><label>Red label<input id="batchLabelA" maxlength="12" value="A"></label><label>Blue label<input id="batchLabelB" maxlength="12" value="B"></label></div>
       </div>
@@ -162,6 +162,11 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
         <label>Shrink step (m)<input id="batchOlStep" type="number" min="5" max="100" step="5" value="20"></label>
         <label>Interval (min)<input id="batchOlInterval" type="number" min="1" max="30" step="1" value="10"></label>
       </div>
+      <details id="batchArtifactsCard" class="hostArtifacts" style="margin-top:12px">
+        <summary>Artifacts for this game</summary>
+        <p class="compact">Tick the artifacts to hide on the field.</p>
+        <div id="batchArtifactList"></div>
+      </details>
       <button id="addGameToBatch" class="wide alt">ADD TO BATCH</button>
     </div>
     
@@ -183,7 +188,8 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
       <h3 style="margin-top:0;color:#4da6ff">BLUE BATCH</h3>
       <div id="batchBlueQR" class="qr"></div>
     </div>
-    <button id="batchPanelBack" class="wide alt">Back to Menu</button>
+    <button id="printBatchArtifactsBtn" class="wide alt" style="display:none; margin-top:12px;">🖨️ PRINT BATCH ARTIFACTS</button>
+    <button id="batchPanelBack" class="wide alt" style="margin-top:12px;">Back to Menu</button>
   </div>
   <div id="hostPanel" class="hidden">
     <h2>Host QR codes</h2>
