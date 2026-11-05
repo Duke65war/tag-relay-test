@@ -92,6 +92,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <button id="hostOpen" class="wide">HOST: CREATE SINGLE GAME</button>
     <button id="hostBatchOpen" class="wide">HOST: CREATE BATCH</button>
     <button id="joinOpen" class="wide alt">PLAYER: SCAN TEAM JOIN QR</button>
+    <button id="myGamesOpen" class="wide alt">📋 MY GAMES</button>
     <button id="genBaseSignsHome" class="wide alt">🖨️ PRINT 10 BASE SIGNS</button>
     <button id="armouryOpen" class="wide alt">🪖 MY ARMOURY</button>
     <button id="demoOpen" class="wide alt">🧪 TRY A DEMO</button>
@@ -228,6 +229,19 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <label>Callsign<input id="name" maxlength="32"></label>
     <button id="confirmJoin" class="wide">JOIN ASSIGNED TEAM</button>
     <button id="previewBack" class="wide alt">Back</button>
+  </div>
+  <div id="myGames" class="hidden">
+    <h2>My Games</h2>
+    <button id="myGamesScan" class="wide alt">📷 SCAN BATCH QR</button>
+    <div id="joinCamera" class="hidden" style="margin-bottom:12px"><div id="joinReader"></div><button id="joinStop" class="alt">Close camera</button></div>
+    <div id="joinsList" style="margin:12px 0;"></div>
+    <button id="myGamesBack" class="wide alt">Back</button>
+  </div>
+  <div id="batchCallsign" class="hidden">
+    <h2>Enter Callsign</h2>
+    <p class="compact">This will be used for all games this day.</p>
+    <label>Callsign<input id="batchCallsignInput" maxlength="32"></label>
+    <button id="saveCallsign" class="wide">SAVE</button>
   </div>
 </section>
 <section id="play" class="hidden">
