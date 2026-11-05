@@ -106,6 +106,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <label id="livesLabel">Lives<select id="lives"><option value="U">Unlimited</option></select></label>
     <label id="secondsLabel">Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="60"></label>
     <label id="medicLabel">Medic rule<select id="medic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
+    <label id="respawnModeLabel">Respawn mode<select id="respawnMode"><option value="base">Base Respawn</option><option value="timed">Timed Respawn</option></select></label>
     <div class="row"><label>Red team label (A)<input id="labelA" maxlength="12" value="A"></label><label>Blue team label (B)<input id="labelB" maxlength="12" value="B"></label></div>
     <div class="row" id="basesRow">
       <label>Red Sign<select id="signA"></select></label>
@@ -145,6 +146,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
         <label>Lives<select id="batchLives"><option value="U">Unlimited</option></select></label>
         <label>Bleedout seconds<input id="batchSeconds" type="number" min="30" max="600" step="1" value="60"></label>
         <label>Medic rule<select id="batchMedic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
+        <label id="batchRespawnModeLabel">Respawn mode<select id="batchRespawnMode"><option value="base">Base Respawn</option><option value="timed">Timed Respawn</option></select></label>
         <div class="row"><label>Red label<input id="batchLabelA" maxlength="12" value="A"></label><label>Blue label<input id="batchLabelB" maxlength="12" value="B"></label></div>
       </div>
       <div id="batchStandardSigns" class="row">
