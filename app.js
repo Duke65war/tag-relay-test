@@ -71,7 +71,7 @@ const joinArray=(gd,t)=>{
  const baseLoc = t==='A' ? gd.baseA : gd.baseB;
  const b = BASES[baseLoc] || {lat:0, lng:0};
  const sign = t==='A' ? (gd.signA||'R1') : (gd.signB||'B1');
- return [V,'J',gd.gid,gd.game,gd.rules.lives,gd.rules.seconds,gd.rules.medic,gd.rules.a,gd.rules.b,t,sign,b.lat,b.lng];
+ return [V,'J',gd.gid,gd.game,gd.rules.lives,gd.rules.seconds,gd.rules.medic,gd.rules.a,gd.rules.b,t,sign,b.lat,b.lng,gd.rules.respawnMode];
 };
 const joinCode=t=>{
  if(h.mode==='outlast'&&h.outlast){
@@ -99,23 +99,19 @@ function getJoin(raw){
   const playerNow=time();
   const offset=hostNow-playerNow;
   if(playerNow+offset>startEpoch+1800000)throw Error('This game already started. Ask host for a new one.');
-  const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T'};
+  const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T',respawnMode:'base'};
   pending={gid,game,rules,team:'S',mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset}};
   view='preview';render();note('OUTLAST game. Enter your callsign.');
   return;
  }
  if(a.length>=13&&['A','B'].includes(a[9])){
-  let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8]};
+  let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8],respawnMode:a[13]||'base'};
   if(!ruleOK(rules))throw Error('Invalid game settings');
   pending={gid:a[2],game:a[3],rules,team:a[9],mode:'standard',baseSign:a[10],baseLat:a[11],baseLng:a[12]};
   view='preview';render();note('Team assigned by host QR. Enter your callsign.');
   return;
  }
- if(a.length===10||!idOK(a[2])||typeof a[3]!=='string'||!/^[A-Z0-9 _-]{3,18}$/.test(a[3])||!['A','B'].includes(a[9]))throw Error('Not a valid team JOIN QR');
- let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8]};
- if(!ruleOK(rules))throw Error('Invalid game settings');
- pending={gid:a[2],game:a[3],rules,team:a[9],mode:'standard'};
- view='preview';render();note('Team assigned by host QR. Enter your callsign.');
+ throw Error('Not a valid team JOIN QR');
 }
 function hostCreate(){
  if(!HOST_MODE)return;
@@ -133,18 +129,18 @@ function hostCreate(){
   if(isNaN(st.getTime())){note('Invalid start date/time');return}
   if(st.getTime()<time()-60000){note('Start time is in the past');return}
   const outlast={targetLat:hostTarget.lat,targetLng:hostTarget.lng,startRadius,endRadius:OUTLAST_END_RADIUS,step,intervalMin,startEpoch:st.getTime()};
-  const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T'};
+  const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T',respawnMode:'base'};
   if(saveHost({version:4,gid:hex(),game,rules,baseA:'',baseB:'',mode:'outlast',outlast,created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
    view='hostPanel';render();note('OUTLAST game created. Show JOIN QR to players.');
   }
   return;
  }
  let a=$('labelA').value.trim().toUpperCase(),b=$('labelB').value.trim().toUpperCase();
- const rules={lives:$('lives').value,seconds:Number($('seconds').value),medic:$('medic').value,a,b};
+ const rules={lives:$('lives').value,seconds:Number($('seconds').value),medic:$('medic').value,a,b,respawnMode:$('respawnMode').value};
  const baseA=$('baseA').value,baseB=$('baseB').value;
  const signA=$('signA').value,signB=$('signB').value;
  if(!/^[A-Z0-9 _-]{3,18}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
- if(baseA===baseB){note('Red and blue base locations must be different.');return}
+ if(rules.respawnMode==='base'&&baseA===baseB){note('Red and blue base locations must be different.');return}
  if(saveHost({version:4,gid:hex(),game,rules,baseA,baseB,signA,signB,mode:'standard',created:time(),artifacts:[],artifactIds:{},unlockCareers:false})){
   view='hostPanel';render();note('Game created.');
  }
@@ -185,11 +181,11 @@ function addGameToBatch(){
    if(!Number.isFinite(intervalMin)||intervalMin<1||intervalMin>30){note('Interval 1–30 min');return}
    hostBatch.push({game,gid:hex(),startEpoch,mode:'outlast',targetLat:batchTarget.lat,targetLng:batchTarget.lng,startRadius,step,intervalMs:intervalMin*60000,artifacts:checked});
  } else {
-   const rules={lives:$('batchLives').value,seconds:Number($('batchSeconds').value),medic:$('batchMedic').value,a:$('batchLabelA').value.trim().toUpperCase(),b:$('batchLabelB').value.trim().toUpperCase()};
+   const rules={lives:$('batchLives').value,seconds:Number($('batchSeconds').value),medic:$('batchMedic').value,a:$('batchLabelA').value.trim().toUpperCase(),b:$('batchLabelB').value.trim().toUpperCase(),respawnMode:$('batchRespawnMode').value};
    const baseA=$('batchBaseA').value,baseB=$('batchBaseB').value;
    const signA=$('batchSignA').value,signB=$('batchSignB').value;
    if(!/^[A-Z0-9 _-]{3,18}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
-   if(baseA===baseB){note('Red and blue base locations must be different.');return}
+   if(rules.respawnMode==='base'&&baseA===baseB){note('Red and blue base locations must be different.');return}
    if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signA||g.signB===signA))){note(`Sign ${signA} is already used in another game.`);return}
    if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signB||g.signB===signB))){note(`Sign ${signB} is already used in another game.`);return}
    hostBatch.push({game,gid:hex(),startEpoch,mode:'standard',rules,baseA,baseB,signA,signB,artifacts:checked});
@@ -201,6 +197,15 @@ function addGameToBatch(){
  batchTarget=null;
  $('batchTargetInfo').textContent='No target set';
 }
+function getBatchSummary(g){
+ if(g.mode==='outlast') return `OUTLAST`;
+ let s='';
+ s+= g.rules.lives==='U' ? '♾️' : g.rules.lives+'💜';
+ s+= ` · 🩸${g.rules.seconds}`;
+ s+= g.rules.medic==='none' ? ' · 🚑0' : (g.rules.medic==='one' ? ' · 🚑1' : ' · 🚑2');
+ s+= g.rules.respawnMode==='timed' ? ' · ⏰️' : ' · 🏥';
+ return s;
+}
 function renderBatchList(){
  const list=$('batchList');if(!list)return;
  list.replaceChildren();
@@ -208,9 +213,10 @@ function renderBatchList(){
  hostBatch.forEach((g,i)=>{
   let div=document.createElement('div');div.style.cssText='background:#30443a;padding:8px;margin:4px 0;border-radius:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;';
   let time=new Date(g.startEpoch).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  let details = g.mode==='outlast' ? `OUTLAST · ${g.startRadius}m → 5m` : `Red: ${g.signA} @ ${g.baseA} · Blue: ${g.signB} @ ${g.baseB}`;
+  let details = g.mode==='outlast' ? `Target: ${g.startRadius}m → 5m` : `Red: ${g.signA} @ ${g.baseA} · Blue: ${g.signB} @ ${g.baseB}`;
+  let summary = getBatchSummary(g);
   let artText = g.artifacts && g.artifacts.length ? `<br><span class="compact" style="color:#ffd653">Artifacts: ${g.artifacts.length}</span>` : '';
-  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">${details}</span>${artText}</div>`;
+  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">${details}</span><br><span class="compact" style="color:#75d868">${summary}</span>${artText}</div>`;
   let btn=document.createElement('button');btn.textContent='✕';btn.className='danger';btn.style.cssText='padding:4px 8px; min-height:auto; font-size:12px;';btn.onclick=()=>{hostBatch.splice(i,1);renderBatchList();};
   div.appendChild(btn);
   list.appendChild(div);
@@ -291,11 +297,32 @@ function join(){
 const offered=()=>s?.phase==='OFFERED'&&s.offer&&s.tags[s.offer.n-1]?.status==='OFFERED';
 function reconcile(){
  if(offered()&&time()>=s.offer.deadline){
-  edit(x=>{let n=x.offer.n;x.tags[n-1].status='LOST';x.offer=null;x.outbound=null;x.phase=x.rules.lives!=='U'&&!x.tags.some(t=>t.status==='LIVE')?'ELIMINATED':'RETURN';record(x,`Life ${n} spent by timer; ${x.phase}`)});
+  edit(x=>{let n=x.offer.n;x.tags[n-1].status='LOST';x.offer=null;x.outbound=null;
+    if(x.rules.lives!=='U'&&!x.tags.some(t=>t.status==='LIVE')){
+      x.phase='ELIMINATED';
+      record(x,`Life ${n} spent by timer; ELIMINATED`);
+    } else {
+      if(x.rules.respawnMode==='timed'){
+        x.phase='RESPAWNING';
+        x.respawnDeadline=time()+10000;
+        record(x,`Life ${n} spent; timed respawn`);
+      } else {
+        x.phase='RETURN';
+        record(x,`Life ${n} spent; return to base`);
+      }
+    }
+  });
   buzz(s.phase==='ELIMINATED'?'elim':'return');
-  note(s.phase==='ELIMINATED'?'Final life expired — eliminated':'Timer expired. Life spent. Respawn at base.');
+  if(s.phase==='ELIMINATED')note('Final life expired — eliminated');
+  else if(s.phase==='RESPAWNING')note('Life spent. Yell: BACK IN, IN 10!');
+  else note('Life spent. Respawn at base.');
  }
  if(s?.outbound&&time()>=s.outbound.deadline){edit(x=>{x.outbound=null})}
+ if(s?.phase==='RESPAWNING'&&time()>=s.respawnDeadline){
+  edit(x=>{x.phase='ACTIVE';record(x,'Timed respawn complete');});
+  buzz('return');
+  note('BACK IN!');
+ }
 }
 function hit(){reconcile();if(s?.phase!=='ACTIVE')return;let n=s.tags.findIndex(t=>t.status==='LIVE')+1;if(n<1)return;let at=time();edit(x=>{x.tags[n-1].status='OFFERED';x.phase='OFFERED';x.offer={n,id:hex(),at,deadline:at+x.rules.seconds*1000};record(x,`Life ${n} offered`)});note('Show your dog tags. Bleedout timer is running.')}
 function offerData(a){if(a.length!==16||!idOK(a[2])||!idOK(a[9])||!idOK(a[12])||!['A','B','S'].includes(a[8])||!nameOK(a[10])||!Number.isInteger(a[11])||!Number.isSafeInteger(a[13])||!Number.isSafeInteger(a[14])||!Number.isSafeInteger(a[15]))throw Error('Malformed offer QR');let r={lives:String(a[3]),seconds:a[4],medic:a[5],a:a[6],b:a[7]};if(!ruleOK(r)||a[14]!==a[13]+r.seconds*1000||a[11]<1||a[11]>(r.lives==='U'?1:Number(r.lives)))throw Error('Invalid offer data');if(a[2]!==s.gid)throw Error('Different game ID');if(JSON.stringify(r)!==JSON.stringify(s.rules))throw Error('Different rules');if(a[9]===s.id)throw Error('Cannot scan own tags');if(time()>=a[14])throw Error('Tags expired');if(a[13]>time()+60000)throw Error('Phone clocks disagree');return {team:a[8],owner:a[9],name:a[10],n:a[11],offer:a[12],at:a[13],deadline:a[14],challenge:a[15]}}
@@ -310,9 +337,21 @@ function acceptReturn(a){
  if(currentScanMode==='heal'&&a[1]!=='H')throw Error('Only HEALED accepted');
  let n=s.offer.n,name=a[5];
  if(a[1]==='T'){
-  edit(x=>{x.tags[n-1].status='LOST';x.offer=null;x.outbound=null;x.phase=x.rules.lives!=='U'&&!x.tags.some(t=>t.status==='LIVE')?'ELIMINATED':'RETURN';record(x,`Tags taken by ${name}; ${x.phase}`)});
+  edit(x=>{x.tags[n-1].status='LOST';x.offer=null;x.outbound=null;
+    if(x.rules.lives!=='U'&&!x.tags.some(t=>t.status==='LIVE')){
+      x.phase='ELIMINATED';record(x,`Tags taken by ${name}; ELIMINATED`);
+    } else {
+      if(x.rules.respawnMode==='timed'){
+        x.phase='RESPAWNING';x.respawnDeadline=time()+10000;record(x,`Tags taken by ${name}; timed respawn`);
+      } else {
+        x.phase='RETURN';record(x,`Tags taken by ${name}; return to base`);
+      }
+    }
+  });
   buzz(s.phase==='ELIMINATED'?'elim':'return');
-  note(s.phase==='ELIMINATED'?'Tags taken. ELIMINATED.':'Tags taken by '+name+'. Respawn at base.');
+  if(s.phase==='ELIMINATED')note('Tags taken. ELIMINATED.');
+  else if(s.phase==='RESPAWNING')note('Tags taken. Yell: BACK IN, IN 10!');
+  else note('Tags taken by '+name+'. Respawn at base.');
  }else if(a[1]==='H'){
   const medicId=a[4],medicName=a[5];
   edit(x=>{x.tags[n-1].status='LIVE';x.offer=null;x.phase='ACTIVE';x.outbound={type:'K',offer:s.offer.id,medicId,medicName,deadline:time()+180000};record(x,`Healed by ${medicName}`)});
@@ -474,7 +513,7 @@ function renderSetup(){
 }
 function renderPlay(){
  if(!s)return;
- let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED';
+ let phase=s.phase,ret=phase==='RETURN',dead=phase==='ELIMINATED',respawning=phase==='RESPAWNING';
  document.body.classList.toggle('returning',ret);
  document.body.classList.toggle('mist',dead);
  const pa=$('playarea');
@@ -487,9 +526,9 @@ function renderPlay(){
   s.tags.forEach((tag,i)=>{let el=document.createElement('span');el.className=tag.status;el.title=`Life ${i+1}: ${tag.status}`;if(tag.status==='OFFERED'&&offered()&&s.rules.medic!=='none'&&s.mode!=='outlast'){el.classList.add('tappable');el.onclick=()=>scan('play','heal')}bar.append(el)});
   bar.setAttribute('aria-label','Life status: '+s.tags.map(t=>t.status).join(', '));
  }
- const act=$('actions');if(act)act.className='actions'+(ret?' return':dead||phase==='OFFERED'?' off':'');
+ const act=$('actions');if(act)act.className='actions'+(ret||respawning?' return':dead||phase==='OFFERED'?' off':'');
  const hitBtn=$('hit');if(hitBtn)hitBtn.disabled=phase!=='ACTIVE';
- const scanBtn=$('scan');if(scanBtn)scanBtn.disabled=phase!=='ACTIVE'&&!ret;
+ const scanBtn=$('scan');if(scanBtn)scanBtn.disabled=phase!=='ACTIVE'&&!ret&&!respawning;
  const scanImg=$('scanImg');
  if(scanImg){
   if(ret)scanImg.src='./baserespawn.jpg';
@@ -531,6 +570,10 @@ function renderPlay(){
   hint.textContent=s.mode==='outlast'?'A Reaper will scan your tags. No receipt in OUTLAST.':(s.rules.medic==='none'?'Reaper presses TAG when they have your tags. Then scan their TAGS TAKEN QR.':'Reaper presses TAG to take tags. Medic presses the yellow bar to heal.');
   st.append(hint);
   secondsLeft();refreshOffer();
+ }else if(respawning){
+  let head=document.createElement('h2');head.textContent='YELL: BACK IN, IN 10!';head.style.color='#ffd653';head.style.fontSize='24px';st.append(head);
+  let timer=document.createElement('p');timer.className='timer';timer.id='respawnTimer';timer.style.fontSize='48px';timer.style.color='#e65d5d';st.append(timer);
+  let p=document.createElement('p');p.textContent='Stay where you are. You are not in play until the timer hits zero.';st.append(p);
  }else if(ret||dead){
   let head=document.createElement('h2');head.textContent=ret?'RESPAWN AT BASE':'ELIMINATED';st.append(head);
   if(dead){let gif=document.createElement('img');gif.src='./eliminated.gif';gif.alt='Eliminated';gif.style.maxWidth='80%';gif.style.borderRadius='12px';gif.style.margin='10px 0';st.append(gif)}
@@ -848,7 +891,7 @@ if(HOST_MODE){
 }
 function applyHostMode(){
  const isOutlast=hostMode==='outlast';
- ['livesLabel','secondsLabel','medicLabel','basesRow','basesLocRow'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ ['livesLabel','secondsLabel','medicLabel','basesRow','basesLocRow','respawnModeLabel'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
  const la=$('labelA');if(la){const row=la.closest('.row');if(row)row.style.display=isOutlast?'none':''}
  const op=$('outlastPanel');if(op)op.classList.toggle('hidden',!isOutlast);
  const ms=$('modeStandard'),mo=$('modeOutlast');
@@ -860,7 +903,7 @@ function applyHostMode(){
 }
 function applyBatchMode(){
  const isOutlast=batchMode==='outlast';
- ['batchStandardFields','batchStandardSigns','batchStandardBases'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ ['batchStandardFields','batchStandardSigns','batchStandardBases','batchRespawnModeLabel'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
  const op=$('batchOutlastFields');if(op)op.classList.toggle('hidden',!isOutlast);
  const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
  if(bms)bms.className=isOutlast?'wide alt':'wide';
@@ -1025,7 +1068,7 @@ function openMapForTarget(){if(window._openMapForTarget)window._openMapForTarget
 if(HOST_MODE){
  try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid))throw Error('host');h=x;if(!h.mode)h.mode='standard';view='hostPanel'}}catch(e){note('Saved host game unreadable.')}
 }
-try{let raw=localStorage.getItem(KEY);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!idOK(x.id)||!Array.isArray(x.tags)||!['ACTIVE','OFFERED','RETURN','ELIMINATED'].includes(x.phase))throw Error('player');if(!x.mode)x.mode='standard';s=x}}catch(e){note('Saved player data unreadable.')}
+try{let raw=localStorage.getItem(KEY);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid)||!idOK(x.id)||!Array.isArray(x.tags)||!['ACTIVE','OFFERED','RETURN','ELIMINATED','RESPAWNING'].includes(x.phase))throw Error('player');if(!x.mode)x.mode='standard';s=x}}catch(e){note('Saved player data unreadable.')}
 loadCareer();careerPurgeIfExpired();
 render();
 if(s&&s.mode==='outlast'){startBoundaryWatch()}
