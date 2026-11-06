@@ -963,7 +963,7 @@ if(HOST_MODE){
 }
 function applyHostMode(){
  const isOutlast=hostMode==='outlast';
- ['livesLabel','secondsLabel','medicLabel','basesRow','basesLocRow','respawnModeLabel'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ ['livesLabel','secondsLabel','medicLabel','respawnModeLabel'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
  const la=$('labelA');if(la){const row=la.closest('.row');if(row)row.style.display=isOutlast?'none':''}
  const op=$('outlastPanel');if(op)op.classList.toggle('hidden',!isOutlast);
  const ms=$('modeStandard'),mo=$('modeOutlast');
@@ -975,7 +975,7 @@ function applyHostMode(){
 }
 function applyBatchMode(){
  const isOutlast=batchMode==='outlast';
- ['batchStandardFields','batchStandardSigns','batchStandardBases','batchRespawnModeLabel'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
+ ['batchStandardFields','batchStandardSigns'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',isOutlast)});
  const op=$('batchOutlastFields');if(op)op.classList.toggle('hidden',!isOutlast);
  const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
  if(bms)bms.className=isOutlast?'wide alt':'wide';
@@ -1022,7 +1022,10 @@ function applyBatchMode(){
   const myBaseName=myTeam?(myTeam==='A'?s.baseA:s.baseB):null;
   const myColour=myTeam==='A'?'#a7222c':(myTeam==='B'?'#1c5daa':'#888');
   drawMarker('SAFE ZONE',BASES['Safe Zone'].lat,BASES['Safe Zone'].lng,'#d4af37',true);
-  if(!isOutlast&&myBaseName&&BASES[myBaseName]){drawMarker((myBaseLabel||'')+' TEAM BASE',BASES[myBaseName].lat,BASES[myBaseName].lng,myColour,true)}
+  if(!isOutlast&&myBaseName&&BASES[myBaseName]){
+    drawMarker('🏰 START',BASES[myBaseName].lat,BASES[myBaseName].lng,myColour,true);
+    if(s.rules.respawnMode!=='timed')drawMarker('🏥 RESPAWN',BASES[myBaseName].lat,BASES[myBaseName].lng,myColour,true);
+  }
   if(gridOn&&!isOutlast){Object.keys(BASES).forEach(name=>{if(name==='Safe Zone')return;if(name===myBaseName)return;drawMarker(name,BASES[name].lat,BASES[name].lng,'#888',true)})}
   document.querySelectorAll('.mapMarker').forEach(el=>{el.style.transform='translate(-50%,-50%) scale('+(1/scale)+')'});
  }
