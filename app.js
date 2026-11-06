@@ -908,28 +908,64 @@ $('myGamesStop').onclick=stopScan;
 $('saveCallsign').onclick=()=>{let n=$('batchCallsignInput').value.trim();if(nameOK(n)){career.callsign=n;saveCareer();view='myGames';render();}};
 /* --- HOST-ONLY BINDINGS --- */
 if(HOST_MODE){
- $('hostOpen').onclick=()=>{view='hostForm';hostMode='standard';hostTarget=null;applyHostMode();const el=$('olStartTime');if(el&&!el.value)el.value=defaultOlStartValue();render()};
- $('hostBatchOpen').onclick=()=>{
-  view='hostBatchForm';
-  hostBatch=[]; 
-  batchMode='standard';
-  let d=new Date(); d.setDate(d.getDate()+((7-d.getDay())%7||7));
-  hostBatchDate=d.toISOString().split('T')[0];
-  $('batchDate').value=hostBatchDate;
-  renderBatchList();
-  renderBatchArtifactCheckboxes();
-  applyBatchMode();
-  render();
+ $('hostOpen').onclick = () => {
+  let step = 'starting Single Game';
+  try {
+   view = 'hostForm';
+   hostMode = 'standard';
+   hostTarget = null;
+   step = 'applyHostMode';
+   applyHostMode();
+   step = 'setting default OUTLAST start time';
+   const el = $('olStartTime');
+   if (el && !el.value) {
+    el.value = defaultOlStartValue();
+   }
+   step = 'render';
+   render();
+  } catch (err) {
+   console.error('Single Game failed at:', step, err);
+   alert('Single Game failed at: ' + step + '\n\n' + err.message);
+  }
  };
+
+ $('hostBatchOpen').onclick = () => {
+  let step = 'starting Batch';
+  try {
+   view = 'hostBatchForm';
+   hostBatch = [];
+   batchMode = 'standard';
+   step = 'calculating batch date';
+   let d = new Date();
+   d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7));
+   hostBatchDate = d.toISOString().split('T')[0];
+   step = 'finding batchDate input';
+   const dateInput = $('batchDate');
+   if (!dateInput) {
+    throw new Error('Missing HTML element: batchDate');
+   }
+   dateInput.value = hostBatchDate;
+   step = 'renderBatchList';
+   renderBatchList();
+   step = 'renderBatchArtifactCheckboxes';
+   renderBatchArtifactCheckboxes();
+   step = 'applyBatchMode';
+   applyBatchMode();
+   step = 'render';
+   render();
+  } catch (err) {
+   console.error('Batch failed at:', step, err);
+   alert('Batch failed at: ' + step + '\n\n' + err.message);
+  }
+ };
+ 
  $('addGameToBatch').onclick=addGameToBatch;
  $('batchDate').onchange=e=>{hostBatchDate=e.target.value;};
  $('genBatchQRs').onclick=generateBatchQR;
  $('printBatchArtifactsBtn').onclick=printBatchArtifacts;
  $('batchBack').onclick=()=>{view='choice';render()};
  $('batchPanelBack').onclick=()=>{view='choice';render()};
- const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
- if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};
- if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
+ const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
  const bpt=$('batchPickTarget');if(bpt)bpt.onclick=()=>{placingTarget=true;openMapForTarget()};
  $('hostBack').onclick=()=>{view='choice';render()};
  $('create').onclick=hostCreate;
