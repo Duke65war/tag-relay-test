@@ -927,9 +927,7 @@ if(HOST_MODE){
  $('printBatchArtifactsBtn').onclick=printBatchArtifacts;
  $('batchBack').onclick=()=>{view='choice';render()};
  $('batchPanelBack').onclick=()=>{view='choice';render()};
- const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');
- if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};
- if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
+ const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
  const bpt=$('batchPickTarget');if(bpt)bpt.onclick=()=>{placingTarget=true;openMapForTarget()};
  $('hostBack').onclick=()=>{view='choice';render()};
  $('create').onclick=hostCreate;
