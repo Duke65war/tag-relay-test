@@ -1,4 +1,5 @@
 (()=>{'use strict';
+alert('MASH TEST 2: updated app.js is running');
 const KEY='mash-unit-v4',HOST='mash-unit-v4-host',ANCHOR_KEY='mash-unit-anchors',CAREER_KEY='mash-unit-career',JOINS_KEY='mash-unit-joins',V='MU4',$=id=>document.getElementById(id),time=()=>Date.now(),hex=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,'0')).join('');
 const HOST_MODE=(()=>{try{return typeof window!=='undefined'&&window.MASH_MODE==='host'}catch(e){return false}})();
 const BASES={
@@ -909,6 +910,7 @@ $('saveCallsign').onclick=()=>{let n=$('batchCallsignInput').value.trim();if(nam
 /* --- HOST-ONLY BINDINGS --- */
 if(HOST_MODE){
  $('hostOpen').onclick = () => {
+  alert('MASH TEST 2: Single Game handler started');
   let step = 'starting Single Game';
   try {
    view = 'hostForm';
@@ -930,6 +932,7 @@ if(HOST_MODE){
  };
 
  $('hostBatchOpen').onclick = () => {
+  alert('MASH TEST 2: Batch handler started');
   let step = 'starting Batch';
   try {
    view = 'hostBatchForm';
@@ -1235,4 +1238,3 @@ setInterval(()=>{
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer();render()}});
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>note('Offline cache registration failed.'));
 })();
- 
