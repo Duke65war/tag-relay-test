@@ -905,7 +905,8 @@ $('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
 $('myGamesOpen').onclick=()=>{loadJoins();view='myGames';render()};
 $('myGamesBack').onclick=()=>{view=(HOST_MODE&&h)?'hostPanel':'choice';render()};
 $('myGamesScan').onclick=()=>scan('join');
-$('myGamesStop').onclick=stopScan;
+const myGamesStop = $('myGamesStop');
+if (myGamesStop) myGamesStop.onclick = stopScan;
 $('saveCallsign').onclick=()=>{let n=$('batchCallsignInput').value.trim();if(nameOK(n)){career.callsign=n;saveCareer();view='myGames';render();}};
 /* --- HOST-ONLY BINDINGS --- */
 if(HOST_MODE){
@@ -1238,4 +1239,3 @@ setInterval(()=>{
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer();render()}});
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>note('Offline cache registration failed.'));
 })();
- 
