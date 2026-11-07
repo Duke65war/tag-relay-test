@@ -534,7 +534,7 @@ function renderSetup(){
  if(pl)pl.classList.toggle('hidden',!s);
  if(s)return;
  let v=(HOST_MODE&&h&&view==='choice')?'hostPanel':view;
- ['choice','hostForm','hostPanel','joinPanel','preview','hostBatchForm','hostBatchPanel','myGames','batchCallsign'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
+ ['choice','profileSetup','hostForm','hostPanel','joinPanel','preview','hostBatchForm','hostBatchPanel','myGames','batchCallsign'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
  if(v==='hostPanel'&&h){
   const hi=$('hostInfo');
   if(hi)hi.textContent=h.mode==='outlast'?`${h.game} · ${h.gid.slice(0,8)} · ${outlastRuleText(h.outlast)}`:`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} (${h.signA||'R1'}) @ ${h.baseA} / BLUE ${h.rules.b} (${h.signB||'B1'}) @ ${h.baseB}`;
@@ -868,10 +868,14 @@ async function stopScan(){let item=scanner;scanner=null;$('camera').classList.ad
 async function scan(kind,mode){
  currentScanMode=mode||'normal';reconcile();
  if(kind==='play'&&!s)return;
- if(kind==='join'&&!career.callsign){
-   pendingScanAction={kind,mode};
-   view='profileSetup';render();
-   return;
+ if(kind==='join'){
+   if(!career)loadCareer();
+   if(!career.callsign){
+     pendingScanAction={kind,mode};
+     view='profileSetup';render();
+     return;
+   }
+   view='joinPanel';render();
  }
  await stopScan();
  if(typeof Html5Qrcode!=='function'){note('Scanner library unavailable.');return}
@@ -891,37 +895,49 @@ async function scan(kind,mode){
 }
 function download(){let blob=new Blob([JSON.stringify(s,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`mash-unit-${s.game}-${s.team}-${s.id.slice(0,6)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 /* --- COMMON BINDINGS --- */
-$('joinOpen').onclick=()=>{view='joinPanel';render()};
-$('joinBack').onclick=()=>{view=(HOST_MODE&&h)?'hostPanel':'choice';render()};
-$('joinScan').onclick=()=>scan('join');
-$('joinStop').onclick=stopScan;
-$('previewBack').onclick=()=>{pending=null;view=(HOST_MODE&&h)?'hostPanel':'choice';render()};
-$('confirmJoin').onclick=join;
-$('hit').onclick=hit;
-$('scan').onclick=()=>scan('play');
-$('stop').onclick=stopScan;
-$('cancelMedic').onclick=cancelMedic;
-$('export').onclick=()=>{if(s)download()};
-$('reset').onclick=()=>{if(!s||!confirm("Erase this phone's player game and personal history?"))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');stopBoundaryWatch();view=(HOST_MODE&&h)?'hostPanel':'choice';render();note('Player reset.')};
-$('closeDialog').onclick=()=>$('dialog').close();
-$('armouryOpen').onclick=()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')};
-$('armouryPlayBtn').onclick=()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')};
-$('armouryClose').onclick=()=>$('armouryOverlay').classList.add('hidden');
-$('myGamesOpen').onclick=()=>{loadJoins();view='myGames';render()};
-$('myGamesBack').onclick=()=>{view=(HOST_MODE&&h)?'hostPanel':'choice';render()};
-$('myGamesScan').onclick=()=>scan('join');
-$('myGamesStop').onclick=stopScan;
-$('saveCallsign').onclick=()=>{
-  let n=$('batchCallsignInput').value.trim();
+function bindClick(id,handler){const el=$(id);if(el)el.onclick=handler}
+bindClick('joinOpen',()=>scan('join'));
+bindClick('joinBack',()=>{view=(HOST_MODE&&h)?'hostPanel':'choice';render()});
+bindClick('joinScan',()=>scan('join'));
+bindClick('joinStop',stopScan);
+bindClick('previewBack',()=>{pending=null;view=(HOST_MODE&&h)?'hostPanel':'choice';render()});
+bindClick('confirmJoin',join);
+bindClick('hit',hit);
+bindClick('scan',()=>scan('play'));
+bindClick('stop',stopScan);
+bindClick('cancelMedic',cancelMedic);
+bindClick('export',()=>{if(s)download()});
+bindClick('reset',()=>{if(!s||!confirm("Erase this phone's player game and personal history?"))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');stopBoundaryWatch();view=(HOST_MODE&&h)?'hostPanel':'choice';render();note('Player reset.')});
+bindClick('closeDialog',()=>$('dialog').close());
+bindClick('armouryOpen',()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')});
+bindClick('armouryPlayBtn',()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')});
+bindClick('armouryClose',()=>$('armouryOverlay').classList.add('hidden'));
+bindClick('myGamesOpen',()=>{loadJoins();view='myGames';render()});
+bindClick('myGamesBack',()=>{view=(HOST_MODE&&h)?'hostPanel':'choice';render()});
+bindClick('myGamesScan',()=>scan('join'));
+bindClick('myGamesStop',stopScan);
+bindClick('saveCallsign',()=>{
+  const input=$('batchCallsignInput');
+  if(!input)return;
+  let n=input.value.trim();
   if(!nameOK(n)){note('Enter a callsign up to 32 characters');return}
   career.callsign=n;saveCareer();
   if(pendingScanAction){const act=pendingScanAction;pendingScanAction=null;view='choice';render();scan(act.kind,act.mode);}
   else{view='myGames';render();}
-};
+});
+bindClick('saveSetupCallsign',()=>{
+  const n=$('setupCallsign').value.trim();
+  if(!nameOK(n)){note('Enter a callsign up to 32 characters');return}
+  career.callsign=n;saveCareer();
+  const act=pendingScanAction||{kind:'join'};
+  pendingScanAction=null;
+  note('');
+  scan(act.kind,act.mode);
+});
 /* --- HOST-ONLY BINDINGS --- */
 if(HOST_MODE){
- $('hostOpen').onclick=()=>{view='hostForm';hostMode='standard';hostTarget=null;applyHostMode();const el=$('olStartTime');if(el&&!el.value)el.value=defaultOlStartValue();render()};
- $('hostBatchOpen').onclick=()=>{
+ bindClick('hostOpen',()=>{view='hostForm';hostMode='standard';hostTarget=null;applyHostMode();const el=$('olStartTime');if(el&&!el.value)el.value=defaultOlStartValue();render()});
+ bindClick('hostBatchOpen',()=>{
   view='hostBatchForm';
   hostBatch=[]; 
   batchMode='standard';
@@ -932,17 +948,18 @@ if(HOST_MODE){
   renderBatchArtifactCheckboxes();
   applyBatchMode();
   render();
- };
- $('addGameToBatch').onclick=addGameToBatch;
- $('batchDate').onchange=e=>{hostBatchDate=e.target.value;};
- $('genBatchQRs').onclick=generateBatchQR;
- $('printBatchArtifactsBtn').onclick=printBatchArtifacts;
- $('batchBack').onclick=()=>{view='choice';render()};
- $('batchPanelBack').onclick=()=>{view='choice';render()};
+ });
+ bindClick('addGameToBatch',addGameToBatch);
+ bindClick('batchDate',e=>{});
+ const bd=$('batchDate');if(bd)bd.onchange=e=>{hostBatchDate=e.target.value;};
+ bindClick('genBatchQRs',generateBatchQR);
+ bindClick('printBatchArtifactsBtn',printBatchArtifacts);
+ bindClick('batchBack',()=>{view='choice';render()});
+ bindClick('batchPanelBack',()=>{view='choice';render()});
  const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
  const bpt=$('batchPickTarget');if(bpt)bpt.onclick=()=>{placingTarget=true;openMapForTarget()};
- $('hostBack').onclick=()=>{view='choice';render()};
- $('create').onclick=hostCreate;
+ bindClick('hostBack',()=>{view='choice';render()});
+ bindClick('create',hostCreate);
  const ms=$('modeStandard'),mo=$('modeOutlast');
  if(ms)ms.onclick=()=>{hostMode='standard';applyHostMode();updateOutlastPreview()};
  if(mo)mo.onclick=()=>{hostMode='outlast';applyHostMode();updateOutlastPreview()};
@@ -952,11 +969,11 @@ if(HOST_MODE){
  for(let [id,type,t,target] of [['hostJA','J','A','hostQR'],['hostJB','J','B','hostQR'],['hostBA','B','A','hostQR'],['hostBB','B','B','hostQR'],['playJA','J','A','playHostQR'],['playJB','J','B','playHostQR'],['playBA','B','A','playHostQR'],['playBB','B','B','playHostQR']]){
   const el=$(id);if(el)el.onclick=()=>hostDraw(type,t,target);
  }
- $('selfA').onclick=()=>{try{getJoin(joinCode('A'))}catch(e){note(e.message)}};
- $('selfB').onclick=()=>{try{getJoin(joinCode('B'))}catch(e){note(e.message)}};
- $('eraseHost').onclick=()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone?')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}};
- $('unlockCareers').onchange=e=>{if(!h)return;h.unlockCareers=e.target.checked;saveHost(h);note(e.target.checked?'Career unlock ON':'Career unlock OFF')};
- $('genArtifacts').onclick=()=>{if(!h)return;const checked=[];document.querySelectorAll('#artifactList input:checked').forEach(cb=>checked.push(cb.value));if(checked.length===0){note('Tick at least one artifact');return}h.artifacts=checked;if(!h.artifactIds)h.artifactIds={};checked.forEach(gunId=>{if(!h.artifactIds[gunId])h.artifactIds[gunId]=hex().slice(0,16)});saveHost(h);showPrintOverlay()};
+ bindClick('selfA',()=>{try{getJoin(joinCode('A'))}catch(e){note(e.message)}});
+ bindClick('selfB',()=>{try{getJoin(joinCode('B'))}catch(e){note(e.message)}});
+ bindClick('eraseHost',()=>{if(s){note('Reset player first.');return}if(confirm('Erase host codes on THIS phone?')){localStorage.removeItem(HOST);h=null;view='choice';render();note('Host setup erased.')}});
+ const uc=$('unlockCareers');if(uc)uc.onchange=e=>{if(!h)return;h.unlockCareers=e.target.checked;saveHost(h);note(e.target.checked?'Career unlock ON':'Career unlock OFF')};
+ bindClick('genArtifacts',()=>{if(!h)return;const checked=[];document.querySelectorAll('#artifactList input:checked').forEach(cb=>checked.push(cb.value));if(checked.length===0){note('Tick at least one artifact');return}h.artifacts=checked;if(!h.artifactIds)h.artifactIds={};checked.forEach(gunId=>{if(!h.artifactIds[gunId])h.artifactIds[gunId]=hex().slice(0,16)});saveHost(h);showPrintOverlay()});
  const gbs=$('genBaseSignsHome');if(gbs)gbs.onclick=printBaseSigns;
  const sw=$('showWinnerQR');
  if(sw)sw.onclick=()=>{
@@ -1122,14 +1139,14 @@ function applyBatchMode(){
  viewport.addEventListener('touchmove',function(e){if(calibrating||placingTarget)return;if(pinching&&e.touches.length===2){e.preventDefault();const d=dist(e.touches[0],e.touches[1]),newScale=clamp(startScale*(d/startDist)),mx=midX(e.touches[0],e.touches[1]),my=midY(e.touches[0],e.touches[1]),ix=(startMidX-startTx)/startScale,iy=(startMidY-startTy)/startScale;scale=newScale;tx=mx-ix*scale;ty=my-iy*scale;clampPan();apply()}else if(panning&&e.touches.length===1){e.preventDefault();tx=startTx+(e.touches[0].clientX-startX);ty=startTy+(e.touches[0].clientY-startY);clampPan();apply()}},{passive:false});
  viewport.addEventListener('touchend',function(e){if(calibrating||placingTarget)return;if(e.touches.length===0){if(wasSingle)lastLift=Date.now();pinching=false;panning=false}else if(e.touches.length===1){pinching=false;panning=true;startX=e.touches[0].clientX;startY=e.touches[0].clientY;startTx=tx;startTy=ty}},{passive:true});
  viewport.addEventListener('click',function(e){if(placingTarget)handleTargetTap(e.clientX,e.clientY);else if(calibrating)handleCalibrateTap(e.clientX,e.clientY)});
- $('mapButton').onclick=()=>{reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary()};
- $('mapClose').onclick=()=>{overlay.classList.add('hidden');reset();stopWatch();placingTarget=false};
- tools.grid.onclick=()=>{gridOn=!gridOn;tools.grid.classList.toggle('active',gridOn);applyGrid();renderMarkers()};
- tools.loc.onclick=()=>{if(mapWatchId!==null){stopWatch();showBanner('GPS tracking off',1500);return}if(!anchors||!anchors.a||!anchors.b){showBanner('Anchors not ready',2500);return}if(!navigator.geolocation){showBanner('GPS not supported',3000);return}showBanner('Getting GPS...');navigator.geolocation.getCurrentPosition(p=>{banner.style.display='none';showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);startWatch()},e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),{enableHighAccuracy:true,timeout:20000,maximumAge:0})};
- tools.cal.onclick=()=>{if(calibrating){exitCalibrate();return}if(!confirm('Re-calibrate anchors?'))return;anchors=null;try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}dot.style.display='none';youLabel.style.display='none';gridLayer.classList.remove('on');gridOn=false;tools.grid.classList.remove('active');renderMarkers();enterCalibrate()};
- tools.debug.onclick=()=>{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){try{debugText.value=JSON.stringify(JSON.parse(raw),null,2)}catch(e){debugText.value=raw}}else{debugText.value=JSON.stringify(DEFAULT_ANCHORS,null,2)+'\n\n(DEFAULT)'}debugPanel.classList.add('on')};
- $('mapDebugClose').onclick=()=>debugPanel.classList.remove('on');
- $('mapDebugCopy').onclick=()=>{debugText.select();debugText.setSelectionRange(0,99999);try{document.execCommand('copy')}catch(e){}try{navigator.clipboard&&navigator.clipboard.writeText(debugText.value)}catch(e){}showBanner('Copied',1500)};
+ const mbtn=$('mapButton');if(mbtn)mbtn.onclick=()=>{reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary()};
+ const mclose=$('mapClose');if(mclose)mclose.onclick=()=>{overlay.classList.add('hidden');reset();stopWatch();placingTarget=false};
+ if(tools.grid)tools.grid.onclick=()=>{gridOn=!gridOn;tools.grid.classList.toggle('active',gridOn);applyGrid();renderMarkers()};
+ if(tools.loc)tools.loc.onclick=()=>{if(mapWatchId!==null){stopWatch();showBanner('GPS tracking off',1500);return}if(!anchors||!anchors.a||!anchors.b){showBanner('Anchors not ready',2500);return}if(!navigator.geolocation){showBanner('GPS not supported',3000);return}showBanner('Getting GPS...');navigator.geolocation.getCurrentPosition(p=>{banner.style.display='none';showStatus('GPS: '+(p.coords.latitude).toFixed(6)+', '+(p.coords.longitude).toFixed(6)+' ±'+Math.round(p.coords.accuracy)+'m');updateBlueDot(p.coords.latitude,p.coords.longitude,p.coords.accuracy);startWatch()},e=>showBanner('GPS error: '+e.message+' (code '+e.code+')',6000),{enableHighAccuracy:true,timeout:20000,maximumAge:0})};
+ if(tools.cal)tools.cal.onclick=()=>{if(calibrating){exitCalibrate();return}if(!confirm('Re-calibrate anchors?'))return;anchors=null;try{localStorage.removeItem(ANCHOR_KEY)}catch(e){}dot.style.display='none';youLabel.style.display='none';gridLayer.classList.remove('on');gridOn=false;tools.grid.classList.remove('active');renderMarkers();enterCalibrate()};
+ if(tools.debug)tools.debug.onclick=()=>{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){try{debugText.value=JSON.stringify(JSON.parse(raw),null,2)}catch(e){debugText.value=raw}}else{debugText.value=JSON.stringify(DEFAULT_ANCHORS,null,2)+'\n\n(DEFAULT)'}debugPanel.classList.add('on')};
+ const dclose=$('mapDebugClose');if(dclose)dclose.onclick=()=>debugPanel.classList.remove('on');
+ const dcopy=$('mapDebugCopy');if(dcopy)dcopy.onclick=()=>{debugText.select();debugText.setSelectionRange(0,99999);try{document.execCommand('copy')}catch(e){}try{navigator.clipboard&&navigator.clipboard.writeText(debugText.value)}catch(e){}showBanner('Copied',1500)};
  loadAnchors();
  window._openMapForTarget=()=>{
   reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
@@ -1209,4 +1226,3 @@ setInterval(()=>{
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer();render()}});
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>note('Offline cache registration failed.'));
 })();
- 
