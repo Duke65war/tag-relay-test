@@ -373,7 +373,18 @@ function reconcile(){
  }
 }
 function hit(){reconcile();if(s?.phase!=='ACTIVE')return;let n=s.tags.findIndex(t=>t.status==='LIVE')+1;if(n<1)return;let at=time();edit(x=>{x.tags[n-1].status='OFFERED';x.phase='OFFERED';x.offer={n,id:hex(),at,deadline:at+x.rules.seconds*1000};record(x,`Life ${n} offered`)});note('Show your dog tags. Bleedout timer is running.')}
-function offerData(a){if(a.length!==16||!idOK(a[2])||!idOK(a[9])||!idOK(a[12])||!['A','B','S'].includes(a[8])||!nameOK(a[10])||!Number.isInteger(a[11])||!Number.isSafeInteger(a[13])||!Number.isSafeInteger(a[14])||!Number.isSafeInteger(a[15]))throw Error('Malformed offer QR');let r={lives:String(a[3]),seconds:a[4],medic:a[5],a:a[6],b:a[7]};if(!ruleOK(r)||a[14]!==a[13]+r.seconds*1000||a[11]<1||a[11]>(r.lives==='U'?1:Number(r.lives)))throw Error('Invalid offer data');if(a[2]!==s.gid)throw Error('Different game ID');if(JSON.stringify(r)!==JSON.stringify(s.rules))throw Error('Different rules');if(a[9]===s.id)throw Error('Cannot scan own tags');if(time()>=a[14])throw Error('Tags expired');if(a[13]>time()+60000)throw Error('Phone clocks disagree');return {team:a[8],owner:a[9],name:a[10],n:a[11],offer:a[12],at:a[13],deadline:a[14],challenge:a[15]}}
+function offerData(a){
+ if(a.length!==16||!idOK(a[2])||!idOK(a[9])||!idOK(a[12])||!['A','B','S'].includes(a[8])||!nameOK(a[10])||!Number.isInteger(a[11])||!Number.isSafeInteger(a[13])||!Number.isSafeInteger(a[14])||!Number.isSafeInteger(a[15]))throw Error('Malformed offer QR');
+ let r={lives:String(a[3]),seconds:a[4],medic:a[5],a:a[6],b:a[7]};
+ if(!ruleOK(r)||a[14]!==a[13]+r.seconds*1000||a[11]<1||a[11]>(r.lives==='U'?1:Number(r.lives)))throw Error('Invalid offer data');
+ if(a[2]!==s.gid)throw Error('Different game ID');
+ const sameRules=String(r.lives)===String(s.rules.lives)&&r.seconds===s.rules.seconds&&r.medic===s.rules.medic&&r.a===s.rules.a&&r.b===s.rules.b;
+ if(!sameRules)throw Error('Different rules');
+ if(a[9]===s.id)throw Error('Cannot scan own tags');
+ if(time()>=a[14])throw Error('Tags expired');
+ if(a[13]>time()+60000)throw Error('Phone clocks disagree');
+ return {team:a[8],owner:a[9],name:a[10],n:a[11],offer:a[12],at:a[13],deadline:a[14],challenge:a[15]};
+}
 function acceptReturn(a){
  if(!offered())throw Error('You have no active offer');
  if(a.length!==7)throw Error('Malformed return QR');
@@ -897,7 +908,7 @@ function download(){let blob=new Blob([JSON.stringify(s,null,2)],{type:'applicat
 /* --- COMMON BINDINGS --- */
 function bindClick(id,handler){const el=$(id);if(el)el.onclick=handler}
 bindClick('joinOpen',()=>scan('join'));
-bindClick('joinBack',()=>{view=(HOST_MODE&&h)?'hostPanel':'choice';render()});
+bindClick('joinBack',async()=>{await stopScan();view=(HOST_MODE&&h)?'hostPanel':'choice';render();});
 bindClick('joinScan',()=>scan('join'));
 bindClick('joinStop',stopScan);
 bindClick('previewBack',()=>{pending=null;view=(HOST_MODE&&h)?'hostPanel':'choice';render()});
@@ -950,7 +961,6 @@ if(HOST_MODE){
   render();
  });
  bindClick('addGameToBatch',addGameToBatch);
- bindClick('batchDate',e=>{});
  const bd=$('batchDate');if(bd)bd.onchange=e=>{hostBatchDate=e.target.value;};
  bindClick('genBatchQRs',generateBatchQR);
  bindClick('printBatchArtifactsBtn',printBatchArtifacts);
