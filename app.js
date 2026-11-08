@@ -41,12 +41,13 @@ let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placin
 let lastOutlastLive=null,lastOutlastStep=null,lastHostOutlastLive=null,lastHostOutlastStep=null;
 let pendingScanAction=null;
 let previewFromMyGames=false;
+let lastShrinkWarn=null;
 const idOK=x=>typeof x==='string'&&/^[0-9a-f]{24}$/.test(x),labelOK=x=>typeof x==='string'&&/^[A-Z0-9.]{1,12}$/.test(x),nameOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=32;
 const ruleOK=r=>r&&(/^(U|[1-9]|1[0-9]|20)$/.test(String(r.lives)))&&Number.isInteger(r.seconds)&&r.seconds>=30&&r.seconds<=600&&['none','one','two'].includes(r.medic)&&labelOK(r.a)&&labelOK(r.b)&&r.a!==r.b;
 const ruleText=r=>`${r.lives==='U'?'Unlimited':r.lives+' lives'} · ${r.seconds}s · ${r.medic==='none'?'no medic':r.medic==='one'?'one-scan medic':'two-scan medic (30s)'} · ${r.respawnMode==='timed'?'Timed Respawn':'Base Respawn'}`;
 const outlastRuleText=o=>`OUTLAST · ${o.startRadius}m → 5m · −${o.step}m every ${o.intervalMin}min · starts ${new Date(o.startEpoch).toLocaleString([],{dateStyle:'short',timeStyle:'short'})}`;
 function note(x){const el=$('notice');if(el)el.textContent=x||''}function record(x,m){x.events.push({at:new Date().toISOString(),message:m})}
-function buzz(kind){try{if(!navigator.vibrate)return;const p=kind==='elim'?[300,100,300,100,300]:kind==='start'?[500,200,500,200,500]:[200,100,200];navigator.vibrate(p)}catch(e){}}
+function buzz(kind){try{if(!navigator.vibrate)return;const p=kind==='elim'?[300,100,300,100,300]:kind==='start'?[500,200,500,200,500]:kind==='shrinkwarn'?[150]:kind==='shrink10'?[150,100,150]:[200,100,200];navigator.vibrate(p)}catch(e){}}
 function persist(x){try{localStorage.setItem(KEY,JSON.stringify(x));s=x;render();return true}catch(e){note('SAVE FAILED. Do not continue play; browser storage unavailable.');return false}}
 function edit(fn){if(!s)return false;let x=JSON.parse(JSON.stringify(s));fn(x);return persist(x)}
 function saveHost(x){try{localStorage.setItem(HOST,JSON.stringify(x));h=x;return true}catch(e){note('Host setup could not be saved. Do not share game QRs.');return false}}
@@ -335,7 +336,6 @@ function printBatchArtifacts(){
 }
 function join(){
  if(!pending||s)return;
- /* Re-check eligibility for My Games path immediately before creating the session. */
  if(previewFromMyGames){
    const j=joins.find(x=>x.gid===pending.gid);
    if(!j){note('This game is no longer saved on this phone.');return}
@@ -511,12 +511,14 @@ async function accept(raw){
   if(a[2]!==s.baseSign)throw Error(`Wrong base sign. Expected ${s.baseSign}`);
   if(!s.baseLat||!s.baseLng)throw Error('Base location not recorded.');
   try{
-   const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:5000,enableHighAccuracy:true}));
+   const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:20000,maximumAge:30000,enableHighAccuracy:true}));
    const d=distanceMeters(pos.coords.latitude,pos.coords.longitude,s.baseLat,s.baseLng);
    if(d>50)throw Error(`Too far from base (${Math.round(d)}m). You must be within 50m.`);
   }catch(err){
    if(err.message&&err.message.includes('Too far'))throw err;
-   throw Error('GPS check failed. Ensure location is on and try again.');
+   if(err.code===1)throw Error('Location permission is off. Enable it in your phone settings to respawn.');
+   if(err.code===3)throw Error('GPS is taking too long. Move to open sky and try again.');
+   throw Error('GPS signal unavailable. Move to open sky and try again.');
   }
   edit(x=>{if(x.rules.lives==='U')x.tags[0].status='LIVE';x.phase='ACTIVE';record(x,'Correct base sign scan: respawn')});
   buzz('return');
@@ -740,17 +742,47 @@ function renderPlay(){
    let p=document.createElement('p');p.className='teamBadge';p.style.background='#3d6b57';p.textContent=`${s.name} · OUTLAST`;st.append(p);
    const hostNow=playerHostNow();
    const live=!!(s.outlast&&hostNow>=s.outlast.startEpoch);
+   
+   // Countdown logic
+   const iv=s.outlast.intervalMs||(s.outlast.intervalMin?s.outlast.intervalMin*60000:60000);
+   const stepsToEnd=Math.ceil((s.outlast.startRadius-s.outlast.endRadius)/s.outlast.step);
+   const countdownStart= s.outlast.startEpoch + (stepsToEnd * iv);
+   const gameEnd= countdownStart + 30000;
+   
    let panel=document.createElement('div');panel.className='readyPanel';
    panel.style.background=live?'#1b6b3a':'#0e1c17';
    panel.style.border=live?'2px solid #4ade80':'2px solid #d4af37';
+   
    let status=document.createElement('div');
    status.className='liveStatus';
    status.dataset.live=live?'1':'0';
    status.style.cssText='font-size:18px;font-weight:900;letter-spacing:4px;margin-bottom:14px;color:'+(live?'#4ade80':'#d4af37');
    status.textContent=live?'GAME IS ON':'STAND BY';
    panel.appendChild(status);
-   let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
-   let word=document.createElement('div');word.style.cssText='font-size:22px;font-weight:900;letter-spacing:5px;margin-top:10px;color:#d4af37';word.textContent='OUTLAST';panel.appendChild(word);
+   
+   if(live){
+      if(hostNow>=gameEnd){
+         status.textContent='GAME OVER';status.style.color='#ff5963';
+         panel.style.background='#0e1c17'; panel.style.border='2px solid #ff5963';
+         let endText=document.createElement('div');endText.className='final-text';endText.textContent='AWAITING HOST RESULTS';panel.appendChild(endText);
+      } else if(hostNow>=countdownStart){
+         status.textContent='FINAL STAGE';status.style.color='#ff5963';
+         let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
+         let tLeft=Math.ceil((gameEnd-hostNow)/1000);
+         let timer=document.createElement('div');timer.id='outlastTimer';timer.style.cssText='font-size:48px;font-weight:900;color:#fff;margin-top:10px;';timer.textContent=`0:${String(tLeft).padStart(2,'0')}`;panel.appendChild(timer);
+         let finalText=document.createElement('div');finalText.className='final-text';finalText.textContent='KILL THEM ALL';panel.appendChild(finalText);
+      } else {
+         let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
+         let word=document.createElement('div');word.style.cssText='font-size:22px;font-weight:900;letter-spacing:5px;margin-top:10px;color:#d4af37';word.textContent='OUTLAST';panel.appendChild(word);
+         let nextShrink= s.outlast.startEpoch + (Math.floor((hostNow-s.outlast.startEpoch)/iv)+1)*iv;
+         if(nextShrink - hostNow <= 30000){
+            let warn=document.createElement('div');warn.className='shrink-warning';warn.textContent=`NEXT SHRINK IN ${Math.ceil((nextShrink-hostNow)/1000)}s`;panel.appendChild(warn);
+         }
+      }
+   } else {
+      let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
+      let word=document.createElement('div');word.style.cssText='font-size:22px;font-weight:900;letter-spacing:5px;margin-top:10px;color:#d4af37';word.textContent='OUTLAST';panel.appendChild(word);
+   }
    st.append(panel);
    lastOutlastLive=live;
   }else{
@@ -1131,7 +1163,7 @@ function applyBatchMode(){
 }
 /* --- MAP --- */
 (function(){
- let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),markersBox=$('mapMarkers'),boundarySvg=$('mapBoundarySvg'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus');
+ let overlay=$('mapOverlay'),viewport=$('mapViewport'),inner=$('mapInner'),img=$('mapImage'),gridLayer=$('mapGridLayer'),markersBox=$('mapMarkers'),boundarySvg=$('mapBoundarySvg'),dot=$('mapBlueDot'),youLabel=$('mapYouLabel'),banner=$('mapBanner'),status=$('mapStatus'),countdown=$('mapCountdown');
  let debugPanel=$('mapDebugPanel'),debugText=$('mapDebugText');
  let tools={grid:$('mapGridBtn'),loc:$('mapLocBtn'),cal:$('mapCalBtn'),debug:$('mapDebugBtn')};
  const urlParams=new URLSearchParams(location.search);
@@ -1266,6 +1298,40 @@ function applyBatchMode(){
  if(tools.debug)tools.debug.onclick=()=>{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){try{debugText.value=JSON.stringify(JSON.parse(raw),null,2)}catch(e){debugText.value=raw}}else{debugText.value=JSON.stringify(DEFAULT_ANCHORS,null,2)+'\n\n(DEFAULT)'}debugPanel.classList.add('on')};
  const dclose=$('mapDebugClose');if(dclose)dclose.onclick=()=>debugPanel.classList.remove('on');
  const dcopy=$('mapDebugCopy');if(dcopy)dcopy.onclick=()=>{debugText.select();debugText.setSelectionRange(0,99999);try{document.execCommand('copy')}catch(e){}try{navigator.clipboard&&navigator.clipboard.writeText(debugText.value)}catch(e){}showBanner('Copied',1500)};
+ 
+ function updateMapCountdown(){
+   if(!countdown)return;
+   if(s&&s.mode==='outlast'&&s.outlast){
+      const hostNow=time();
+      if(hostNow<s.outlast.startEpoch){
+         countdown.style.display='none';
+         return;
+      }
+      const iv=s.outlast.intervalMs||(s.outlast.intervalMin?s.outlast.intervalMin*60000:60000);
+      const stepsToEnd=Math.ceil((s.outlast.startRadius-s.outlast.endRadius)/s.outlast.step);
+      const countdownStart= s.outlast.startEpoch + (stepsToEnd * iv);
+      const gameEnd= countdownStart + 30000;
+      
+      if(hostNow>=gameEnd){
+         countdown.textContent='GAME OVER';countdown.style.display='block';
+      } else if(hostNow>=countdownStart){
+         let tLeft=Math.ceil((gameEnd-hostNow)/1000);
+         countdown.textContent=`FINAL STAGE: 0:${String(tLeft).padStart(2,'0')}`;
+         countdown.style.display='block';
+      } else {
+         let nextShrink= s.outlast.startEpoch + (Math.floor((hostNow-s.outlast.startEpoch)/iv)+1)*iv;
+         if(nextShrink - hostNow <= 30000){
+            countdown.textContent=`NEXT SHRINK IN ${Math.ceil((nextShrink-hostNow)/1000)}s`;
+            countdown.style.display='block';
+         } else {
+            countdown.style.display='none';
+         }
+      }
+   } else {
+      countdown.style.display='none';
+   }
+ }
+
  loadAnchors();
  window._openMapForTarget=()=>{
   reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
@@ -1275,7 +1341,8 @@ function applyBatchMode(){
   reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
   showBanner('Host live view — boundary updates automatically',3000);
  };
- window._refreshBoundary=()=>{renderBoundary()};
+ window._refreshBoundary=()=>{renderBoundary();updateMapCountdown()};
+ window._tickCountdown=()=>{updateMapCountdown()};
 })();
 function openMapForTarget(){if(window._openMapForTarget)window._openMapForTarget()}
 /* --- INIT --- */
@@ -1302,16 +1369,90 @@ setInterval(()=>{
  if(s&&s.mode==='outlast'&&s.outlast){
   const hostNow=time();
   const live=hostNow>=s.outlast.startEpoch;
+  
   if(live!==lastOutlastLive){
    if(live)buzz('start');
    lastOutlastLive=live;
    if(s.phase==='ACTIVE'&&!s.offer&&!s.outbound)renderPlay();
   }
+  
   if(live){
    const iv=s.outlast.intervalMs||(s.outlast.intervalMin?s.outlast.intervalMin*60000:60000);
-   const step=Math.floor((hostNow-s.outlast.startEpoch)/iv);
-   if(lastOutlastStep!==null&&step>lastOutlastStep)buzz('return');
-   lastOutlastStep=step;
+   const stepsToEnd=Math.ceil((s.outlast.startRadius-s.outlast.endRadius)/s.outlast.step);
+   const countdownStart= s.outlast.startEpoch + (stepsToEnd * iv);
+   const gameEnd= countdownStart + 30000;
+   
+   if(hostNow>=gameEnd){
+      // Game Over
+      if(s.phase==='ACTIVE') {
+         const hitBtn=$('hit');if(hitBtn)hitBtn.disabled=true;
+         const scanBtn=$('scan');if(scanBtn)scanBtn.disabled=true;
+         const panel=document.querySelector('.readyPanel');
+         if(panel){
+            const status=panel.querySelector('.liveStatus');
+            if(status&&status.textContent!=='GAME OVER'){
+               status.textContent='GAME OVER';status.style.color='#ff5963';
+               panel.style.background='#0e1c17'; panel.style.border='2px solid #ff5963';
+               const oldContents=panel.querySelectorAll('div:not(.liveStatus)');oldContents.forEach(c=>c.remove());
+               let endText=document.createElement('div');endText.className='final-text';endText.textContent='AWAITING HOST RESULTS';panel.appendChild(endText);
+            }
+         }
+      }
+   } else if(hostNow>=countdownStart){
+      if(s.phase==='ACTIVE') {
+         const hitBtn=$('hit');if(hitBtn)hitBtn.disabled=true;
+         const scanBtn=$('scan');if(scanBtn)scanBtn.disabled=true;
+         const panel=document.querySelector('.readyPanel');
+         if(panel){
+            const status=panel.querySelector('.liveStatus');
+            if(status&&status.textContent!=='FINAL STAGE'){
+               status.textContent='FINAL STAGE';status.style.color='#ff5963';
+               const oldContents=panel.querySelectorAll('div:not(.liveStatus)');oldContents.forEach(c=>c.remove());
+               let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
+               let timer=document.createElement('div');timer.id='outlastTimer';timer.style.cssText='font-size:48px;font-weight:900;color:#fff;margin-top:10px;';panel.appendChild(timer);
+               let finalText=document.createElement('div');finalText.className='final-text';finalText.textContent='KILL THEM ALL';panel.appendChild(finalText);
+            }
+            let timer=panel.querySelector('#outlastTimer');
+            if(timer){
+               let tLeft=Math.ceil((gameEnd-hostNow)/1000);
+               timer.textContent=`0:${String(tLeft).padStart(2,'0')}`;
+            }
+         }
+      }
+   } else {
+      const nextShrink= s.outlast.startEpoch + (Math.floor((hostNow-s.outlast.startEpoch)/iv)+1)*iv;
+      const stepsCount=Math.floor((hostNow-s.outlast.startEpoch)/iv);
+      if(lastOutlastStep!==null&&stepsCount>lastOutlastStep){
+         if(live)buzz('shrinkwarn');
+      }
+      if(nextShrink-hostNow<=30000&&lastShrinkWarn!==nextShrink){
+         lastShrinkWarn=nextShrink;
+         buzz('shrinkwarn');
+      }
+      if(nextShrink-hostNow<=10000&&lastShrinkWarn!==nextShrink+1){
+         lastShrinkWarn=nextShrink+1;
+         buzz('shrink10');
+      }
+      lastOutlastStep=stepsCount;
+      const panel=document.querySelector('.readyPanel');
+      if(panel&&s.phase==='ACTIVE'){
+         const status=panel.querySelector('.liveStatus');
+         if(status&&status.textContent!=='GAME IS ON'){
+            status.textContent='GAME IS ON';status.style.color='#4ade80';
+            panel.style.background='#1b6b3a'; panel.style.border='2px solid #4ade80';
+            const oldContents=panel.querySelectorAll('div:not(.liveStatus)');oldContents.forEach(c=>c.remove());
+            let emoji=document.createElement('div');emoji.style.cssText='font-size:80px;line-height:1';emoji.textContent='🎯';panel.appendChild(emoji);
+            let word=document.createElement('div');word.style.cssText='font-size:22px;font-weight:900;letter-spacing:5px;margin-top:10px;color:#d4af37';word.textContent='OUTLAST';panel.appendChild(word);
+         }
+         if(nextShrink-hostNow<=30000){
+            let warn=panel.querySelector('.shrink-warning');
+            if(!warn){warn=document.createElement('div');warn.className='shrink-warning';panel.appendChild(warn);}
+            warn.textContent=`NEXT SHRINK IN ${Math.ceil((nextShrink-hostNow)/1000)}s`;
+         } else {
+            let warn=panel.querySelector('.shrink-warning');if(warn)warn.remove();
+         }
+      }
+   }
   }
  }
  if(HOST_MODE&&h&&h.mode==='outlast'&&h.outlast){
@@ -1339,7 +1480,7 @@ setInterval(()=>{
    lastHostOutlastStep=step;
   }
  }
- const wb=window._refreshBoundary;if(wb&&!document.hidden)wb();
+ const wb=window._refreshBoundary;if(wb&&!document.hidden){wb();window._tickCountdown();}
  if(view==='myGames'){updateJoinsStatus();renderSetup();}
 },1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer();render()}});
