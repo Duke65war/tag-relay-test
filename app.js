@@ -1495,8 +1495,8 @@ setInterval(()=>{
      }
   }
   
-  if(live!==lastHostOutlastLive){
-   if(live){
+  if(isLive!==lastHostOutlastLive){
+   if(isLive){
     buzz('start');
     const ac=$('artifactsCard');if(ac)ac.removeAttribute('open');
     const ws=$('winnerSection');if(ws)ws.classList.remove('hidden');
@@ -1504,9 +1504,9 @@ setInterval(()=>{
     const ac=$('artifactsCard');if(ac)ac.setAttribute('open','');
     const ws=$('winnerSection');if(ws)ws.classList.add('hidden');
    }
-   lastHostOutlastLive=live;
+   lastHostOutlastLive=isLive;
   }
-  if(live){
+  if(isLive){
    const step=Math.floor((time()-h.outlast.startEpoch)/iv);
    if(lastHostOutlastStep!==null&&step>lastHostOutlastStep)buzz('return');
    lastHostOutlastStep=step;
