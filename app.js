@@ -1316,7 +1316,7 @@ function applyBatchMode(){
          countdown.textContent='GAME OVER';countdown.style.display='block';
       } else if(hostNow>=countdownStart){
          let tLeft=Math.ceil((gameEnd-hostNow)/1000);
-         countdown.textContent=`FINAL STAGE: 0:${String(tLeft).padStart(2,'0')}`;
+         countdown.textContent=`KILL THEM ALL: 0:${String(tLeft).padStart(2,'0')}`;
          countdown.style.display='block';
       } else {
          let nextShrink= s.outlast.startEpoch + (Math.floor((hostNow-s.outlast.startEpoch)/iv)+1)*iv;
