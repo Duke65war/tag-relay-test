@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10261e"><link rel="manifest" href="./manifest-host.webmanifest"><title>M.A.S.H. Unit — GameMaster</title><style>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10261e"><link rel="manifest" href="./manifest-host.webmanifest"><title>M.A.S.H. Unit Host</title><style>
 *{box-sizing:border-box}body{margin:0;background:#0e1c17;color:#f0f6ef;font:16px system-ui,Arial,sans-serif}main{max-width:580px;margin:auto;padding:10px;display:flex;flex-direction:column;min-height:100svh}h1{font-size:21px;margin:0 0 6px}h2{font-size:19px;margin:5px 0}h3{font-size:16px;margin:10px 0 6px}p{line-height:1.3}small,.muted{color:#c5d3cb}button,input,select{font:inherit;border:0;border-radius:9px;padding:11px}button{background:#b8e96b;color:#142219;font-weight:700;cursor:pointer}button.alt{background:#354d40;color:white}button.danger{background:#eda099;color:#2c1515}button:disabled{opacity:.45}input,select{width:100%;background:#e9f2e8;color:#17251d;margin:4px 0 11px}label{display:block}.hidden{display:none!important}.card{background:#1b3429;border-radius:12px;padding:11px;margin:9px 0}.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}.wide{width:100%;margin:4px 0}.compact{font-size:13px}.bar{display:flex;overflow:hidden;border-radius:9px;height:28px;margin:2px 0 8px}.bar span{flex:1;border-right:1px solid #193528;position:relative}.bar span:last-child{border:0}.LIVE{background:#75d868}.OFFERED{background:#ffd653}.LOST{background:#e65d5d}.bar span.tappable{cursor:pointer;box-shadow:0 0 12px #ffd653,inset 0 0 8px rgba(255,255,255,0.4);animation:healPulse 1.4s infinite}.bar span.tappable::after{content:'+';position:absolute;font-weight:900;color:#142219;font-size:18px;line-height:28px;width:100%;text-align:center;pointer-events:none}@keyframes healPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}.actions{display:grid;grid-template-columns:1fr;gap:8px}.actions button{font-size:20px;min-height:62px}.actions.return{grid-template-columns:1fr}.actions.return #hit,.actions.off{display:none}.qrScanBtn{background:transparent!important;padding:0!important;border:0!important;min-height:auto!important;height:auto;display:block;overflow:hidden;border-radius:10px;line-height:0}.qrScanBtn img{display:block;width:100%;height:auto;pointer-events:none;border-radius:10px}#playarea{min-height:calc(100svh - 58px);display:flex;flex-direction:column}#stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}#stage button{width:100%;min-height:41px}#stage p{margin:4px 0}.timer{font-size:23px;font-weight:bold;color:#ffe176}.qr{background:#fff;padding:16px;display:flex;justify-content:center;width:max-content;max-width:100%;border-radius:4px;margin:3px auto}.qr img,.qr canvas{max-width:100%;height:auto}.offerqr img,.offerqr canvas{width:min(41svh,54vw,220px)!important;height:auto!important}.teamBadge{font-weight:800;padding:5px 12px;border-radius:9px;background:#a7222c;color:white}.teamB .teamBadge{background:#1c5daa}.readyPanel{flex:1;width:100%;min-height:200px;background:#af222e;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:12px}.teamB .readyPanel{background:#1855a5}.readyPanel img{display:block;max-width:90%;max-height:min(52svh,480px);object-fit:contain}.readyPanel strong{font-size:22px}#playarea:has(#camera:not(.hidden)) #stage{display:none}#reader,#joinReader{max-width:280px;margin:auto}#camera,#joinCamera{text-align:center;width:100%}#camera button,#joinCamera button{width:100%}#camera h2.scanLabel,#joinCamera h2.scanLabel{font-size:18px;margin:4px 0 8px;color:#ffe176}#notice{background:#30443a;padding:8px;border-radius:9px;margin:5px 0}#notice:empty{display:none}.tile{display:inline-flex;flex-direction:row;align-items:center;min-width:70px;justify-content:center;background:#354d40;color:white;margin:4px;padding:6px 8px}.tile span{font-size:12px;margin-left:4px}details{margin:9px 0}summary{cursor:pointer}body.returning{background:#000}body.returning #playarea{background:#050505}body.returning #stage{justify-content:center}body.returning #stage h2{color:#ff5963;font-size:clamp(28px,9vw,52px)}body.returning #scan{background:#e75961;color:white;min-height:83px;font-size:25px}body.mist{background:radial-gradient(circle,#bc4c5699,#310d16 80%),#1c080d}body.mist #stage h2{font-size:clamp(28px,9vw,50px);color:#ffb5bd}
 dialog{background:#1b3429;color:white;border:0;border-radius:12px;width:min(90vw,470px)}
 dialog::backdrop{background:#000b}
@@ -33,6 +33,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .mapTool.active{background:#b8e96b;color:#111;border-color:#b8e96b}
 #mapBanner{position:fixed;bottom:64px;left:16px;right:16px;z-index:10000;background:#ffd653;color:#111;font-weight:800;font-size:15px;padding:10px;border-radius:8px;text-align:center;display:none}
 #mapStatus{position:fixed;bottom:16px;left:16px;right:16px;z-index:10000;background:rgba(0,0,0,0.85);color:#c5d3cb;font-size:12px;padding:8px;border-radius:8px;text-align:center;display:none;white-space:pre-line}
+#mapCountdown{position:fixed;bottom:calc(124px + env(safe-area-inset-bottom, 0px));left:16px;right:16px;z-index:10001;background:rgba(200,40,40,0.95);color:#fff;font-weight:900;font-size:24px;padding:15px;border-radius:12px;text-align:center;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);border:2px solid #fff;text-transform:uppercase;animation:finalBlink 1s infinite;pointer-events:none;}
 #mapDebugPanel{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:11000;display:none;padding:20px;flex-direction:column}
 #mapDebugPanel.on{display:flex}
 #mapDebugPanel h3{color:#b8e96b;margin:0 0 12px 0;font-size:18px}
@@ -70,6 +71,21 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .hostArtifacts{margin-top:12px;padding-top:12px;border-top:1px solid #354d40}
 .hostArtifacts label{display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:600}
 .hostArtifacts input[type=checkbox]{width:auto;margin:0}
+.gameCard{background:#30443a;border-radius:10px;padding:10px;margin:8px 0}
+.gameCardHeader{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.gameCardTitle{font-weight:800;font-size:15px}
+.gameCardSub{font-size:12px;color:#c5d3cb;margin-bottom:6px}
+.gameCardStatus{font-size:11px;font-weight:900;letter-spacing:1px;padding:3px 8px;border-radius:6px;text-transform:uppercase}
+.status-WAITING{background:#7a6320;color:#ffd653}
+.status-READY{background:#1f6b3a;color:#b3ffb0}
+.status-EXPIRED{background:#6b2a2a;color:#ffb5bd}
+.status-COMPLETED{background:#354d40;color:#c5d3cb}
+.gameCardHint{font-size:12px;color:#c5d3cb;margin-bottom:8px}
+.gameCardBtns{display:flex;gap:6px}
+.gameCardBtns button{flex:1;min-height:auto;padding:8px;font-size:14px}
+.shrink-warning{font-size:20px;font-weight:900;color:#ffd653;text-shadow:0 2px 4px #000;margin-top:10px;animation:healPulse 1s infinite;}
+@keyframes finalBlink{0%,100%{opacity:1}50%{opacity:0.5}}
+.final-text{font-size:24px;font-weight:900;color:#ff5963;letter-spacing:2px;margin-top:15px;animation:finalBlink 1s infinite;text-transform:uppercase;}
 @media print{
   body>*:not(#printOverlay){display:none!important}
   #printOverlay{position:static;background:#fff;color:#000;padding:0;overflow:visible}
@@ -83,139 +99,137 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 </style></head><body><main>
 <header class="mash-header">
   <h1 class="mash-title">M<span class="sep">▪︎</span>A<span class="sep">▪︎</span>S<span class="sep">▪︎</span>H <span class="unit">unit</span></h1>
-  <p class="mash-subtitle">BY WAR ADVENTURES · GAMEMASTER</p>
+  <p class="mash-subtitle">BY WAR ADVENTURES</p>
 </header>
 <div id="notice" role="status"></div>
 <section id="setup" class="card">
   <div id="choice">
-    <h2>Start or join</h2>
-    <button id="hostOpen" class="wide">HOST: CREATE SINGLE GAME</button>
-    <button id="hostBatchOpen" class="wide">HOST: CREATE BATCH</button>
-    <button id="joinOpen" class="wide alt">PLAYER: SCAN TEAM JOIN QR</button>
-    <button id="myGamesOpen" class="wide alt">📋 MY GAMES</button>
-    <button id="genBaseSignsHome" class="wide alt">🖨️ PRINT 10 BASE SIGNS</button>
-    <button id="armouryOpen" class="wide alt">🪖 MY ARMOURY</button>
-    <button id="demoOpen" class="wide alt">🧪 TRY A DEMO</button>
+    <h2>Host Control</h2>
+    <button id="hostOpen" class="wide alt">⚙️ CREATE STANDARD GAME</button>
+    <button id="hostBatchOpen" class="wide alt">📦 CREATE GAME BATCH</button>
+    <button id="joinOpen" class="wide alt">🎮 JOIN AS PLAYER</button>
+    <button id="myGamesOpen" class="wide alt">🎮 MY GAMES</button>
+    <button id="armouryOpen" class="wide alt">🎒 MY ARMOURY</button>
   </div>
   <div id="hostForm" class="hidden">
-    <h2>Host rules</h2>
+    <h2>Create Game</h2>
     <div class="row" style="margin-bottom:8px">
-      <button id="modeStandard" class="wide">STANDARD</button>
-      <button id="modeOutlast" class="wide alt">OUTLAST</button>
+      <button id="modeStandard" class="wide">Standard</button>
+      <button id="modeOutlast" class="wide alt">Outlast</button>
     </div>
-    <label>Game name<input id="game" maxlength="18" value="WAR1"></label>
-    <label id="livesLabel">Lives<select id="lives"><option value="U">Unlimited</option></select></label>
-    <label id="secondsLabel">Bleedout seconds (30–600)<input id="seconds" type="number" min="30" max="600" step="1" value="60"></label>
-    <label id="medicLabel">Medic rule<select id="medic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
-    <label id="respawnModeLabel">Respawn mode<select id="respawnMode"><option value="base">Base Respawn</option><option value="timed">Timed Respawn</option></select></label>
-    <div class="row"><label>Red team label (A)<input id="labelA" maxlength="12" value="A"></label><label>Blue team label (B)<input id="labelB" maxlength="12" value="B"></label></div>
-    <div class="row" id="basesRow">
+    <label>Game Name<input id="game" maxlength="18" value="WAR1"></label>
+    <div id="outlastPanel" class="hidden">
+       <label>Start Radius (m)<input id="olStartR" type="number" value="100"></label>
+       <label>Step Size (m)<input id="olStep" type="number" value="20"></label>
+       <label>Interval (min)<input id="olInterval" type="number" value="5"></label>
+       <label>Start Time<input id="olStartTime" type="datetime-local"></label>
+       <p id="olPreview" class="compact muted"></p>
+       <button id="pickTarget" class="wide alt">📍 SET TARGET ON MAP</button>
+       <p id="targetInfo" class="compact muted">No target set</p>
+    </div>
+    <div id="livesLabel"><label>Lives<select id="lives"></select></label></div>
+    <div id="secondsLabel"><label>Bleedout Time (sec)<input id="seconds" type="number" value="120"></label></div>
+    <div id="medicLabel"><label>Medic<select id="medic"><option value="none">None</option><option value="one">1 Scan</option><option value="two">2 Scans</option></select></label></div>
+    <div id="respawnModeLabel"><label>Respawn Mode<select id="respawnMode"><option value="base">Base Sign</option><option value="timed">Timed 10s</option></select></label></div>
+    <div class="row" style="margin-bottom:8px">
+      <label>Red Name<input id="labelA" value="RED" maxlength="12"></label>
+      <label>Blue Name<input id="labelB" value="BLUE" maxlength="12"></label>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <label>Red Base<select id="baseA"></select></label>
       <label>Red Sign<select id="signA"></select></label>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <label>Blue Base<select id="baseB"></select></label>
       <label>Blue Sign<select id="signB"></select></label>
     </div>
-    <div class="row" id="basesLocRow">
-      <label>Red Base<select id="baseA"></select></label>
-      <label>Blue Base<select id="baseB"></select></label>
-    </div>
-    <div id="outlastPanel" class="hidden">
-      <div class="card" style="margin:8px 0"><h3 style="margin-top:0">OUTLAST settings</h3>
-        <button id="pickTarget" class="wide alt">📍 TAP MAP TO PLACE TARGET</button>
-        <p class="compact muted" id="targetInfo">No target set</p>
-        <label>Start radius (m)<input id="olStartR" type="number" min="20" max="500" step="5" value="100"></label>
-        <label>Shrink step (m)<input id="olStep" type="number" min="5" max="100" step="5" value="20"></label>
-        <label>Interval (min)<input id="olInterval" type="number" min="1" max="30" step="1" value="10"></label>
-        <label>Start date &amp; time<input id="olStartTime" type="datetime-local"></label>
-        <p class="compact muted" id="olPreview"></p>
-      </div>
-    </div>
-    <p class="compact muted">Use a unique game name each week. It becomes the pattern name on every artifact found in this game.</p>
-    <button id="create" class="wide">CREATE GAME &amp; LOCK RULES</button>
+    <button id="create" class="wide">CREATE GAME</button>
     <button id="hostBack" class="wide alt">Back</button>
-  </div>
-  <div id="hostBatchForm" class="hidden">
-    <h2>Create Batch</h2>
-    <label>Batch Date<input id="batchDate" type="date"></label>
-    <div class="row" style="margin-bottom:8px">
-      <button id="batchModeStandard" class="wide">STANDARD</button>
-      <button id="batchModeOutlast" class="wide alt">OUTLAST</button>
-    </div>
-    <div class="card" style="margin:8px 0">
-      <h3 style="margin-top:0">Game Details</h3>
-      <label>Game name<input id="batchGameName" maxlength="18" value="WAR1"></label>
-      <label>Start time<input id="batchGameTime" type="time" value="10:30"></label>
-      <div id="batchStandardFields">
-        <label>Lives<select id="batchLives"><option value="U">Unlimited</option></select></label>
-        <label>Bleedout seconds<input id="batchSeconds" type="number" min="30" max="600" step="1" value="60"></label>
-        <label>Medic rule<select id="batchMedic"><option value="none">None</option><option value="one">One scan</option><option value="two">Two scans, at least 30 seconds apart</option></select></label>
-        <label id="batchRespawnModeLabel">Respawn mode<select id="batchRespawnMode"><option value="base">Base Respawn</option><option value="timed">Timed Respawn</option></select></label>
-        <div class="row"><label>Red label<input id="batchLabelA" maxlength="12" value="A"></label><label>Blue label<input id="batchLabelB" maxlength="12" value="B"></label></div>
-      </div>
-      <div id="batchStandardSigns" class="row">
-        <label>Red Sign<select id="batchSignA"></select></label>
-        <label>Blue Sign<select id="batchSignB"></select></label>
-      </div>
-      <div id="batchStandardBases" class="row">
-        <label>Red Base<select id="batchBaseA"></select></label>
-        <label>Blue Base<select id="batchBaseB"></select></label>
-      </div>
-      <div id="batchOutlastFields" class="hidden">
-        <button id="batchPickTarget" class="wide alt">📍 TAP MAP TO PLACE TARGET</button>
-        <p class="compact muted" id="batchTargetInfo">No target set</p>
-        <label>Start radius (m)<input id="batchOlStartR" type="number" min="20" max="500" step="5" value="100"></label>
-        <label>Shrink step (m)<input id="batchOlStep" type="number" min="5" max="100" step="5" value="20"></label>
-        <label>Interval (min)<input id="batchOlInterval" type="number" min="1" max="30" step="1" value="10"></label>
-      </div>
-      <details id="batchArtifactsCard" class="hostArtifacts" style="margin-top:12px">
-        <summary>Artifacts for this game</summary>
-        <p class="compact">Tick the artifacts to hide on the field.</p>
-        <div id="batchArtifactList"></div>
-      </details>
-      <button id="addGameToBatch" class="wide alt">ADD TO BATCH</button>
-    </div>
-    
-    <h3>Games in Batch</h3>
-    <div id="batchList" style="margin-bottom:12px; padding:8px; background:#0e1c17; border-radius:6px; font-size:14px;"></div>
-    
-    <button id="genBatchQRs" class="wide">GENERATE BATCH QRs</button>
-    <button id="batchBack" class="wide alt">Back</button>
-  </div>
-  <div id="hostBatchPanel" class="hidden">
-    <h2>Batch QR Codes</h2>
-    <p id="batchInfo" class="compact"></p>
-    <p class="compact">Show RED to red team, BLUE to blue team.</p>
-    <div class="card">
-      <h3 style="margin-top:0;color:#ff5963">RED BATCH</h3>
-      <div id="batchRedQR" class="qr"></div>
-    </div>
-    <div class="card">
-      <h3 style="margin-top:0;color:#4da6ff">BLUE BATCH</h3>
-      <div id="batchBlueQR" class="qr"></div>
-    </div>
-    <button id="printBatchArtifactsBtn" class="wide alt" style="display:none; margin-top:12px;">🖨️ PRINT BATCH ARTIFACTS</button>
-    <button id="batchPanelBack" class="wide alt" style="margin-top:12px;">Back to Menu</button>
   </div>
   <div id="hostPanel" class="hidden">
     <h2>Host QR codes</h2>
     <p id="hostInfo" class="compact"></p>
     <p class="compact">Show JOIN codes only to assigned players. Place BASE codes at the actual bases.</p>
-    <div class="row"><button id="hostJA">JOIN RED</button><button id="hostJB">JOIN BLUE</button></div>
-    <div class="row" id="hostBaseBtns"><button id="hostBA" class="alt">BASE RED</button><button id="hostBB" class="alt">BASE BLUE</button></div>
-    <div id="hostQR"></div>
-    <div id="hostPlayingSection"><details><summary>Host playing on this phone?</summary><p class="compact">Select the team assigned to you.</p><div class="row"><button id="selfA">JOIN RED</button><button id="selfB">JOIN BLUE</button></div></details></div>
-    <button id="hostWatchMap" class="wide" style="display:none">👁️ WATCH MAP (LIVE)</button>
-    <details id="artifactsCard" class="hostArtifacts" open>
-      <summary>Artifacts for this game</summary>
-      <p class="compact">Tick the artifacts to hide on the field. Tap generate to produce paper QRs.</p>
-      <div id="artifactList"></div>
-      <button id="genArtifacts" class="wide alt">GENERATE ARTIFACT QRs</button>
+    <button id="hostJA" class="wide">JOIN RED</button>
+    <button id="hostJB" class="wide">JOIN BLUE</button>
+    <div id="hostQR" style="margin-top:8px"></div>
+    <button id="hostWatchMap" class="wide alt hidden">👁️ WATCH MAP</button>
+    <details id="artifactsCard" open><summary>Artifacts for this game</summary>
+       <div id="artifactList" class="hostArtifacts"></div>
+       <button id="genArtifacts" class="wide alt" style="margin-top:10px">PRINT ARTIFACT QRs</button>
     </details>
-    <label style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px;background:#30443a;border-radius:8px"><input type="checkbox" id="unlockCareers" style="width:auto;margin:0"><span class="compact">Unlock dormant careers</span></label>
-    <div id="winnerSection" class="hidden" style="margin:12px 0;padding:12px;background:#3d6b57;border-radius:9px">
-      <h3 style="margin-top:0;color:#fff">OUTLAST — Declare winner</h3>
-      <p class="compact" style="color:#fff">Once the last player is standing, show this QR. Only that player scans it.</p>
-      <button id="showWinnerQR" class="wide">SHOW WINNER QR</button>
+    <label style="margin-top:10px"><input type="checkbox" id="unlockCareers"> Unlock dormant careers</label>
+    <div id="winnerSection" class="hidden">
+       <button id="showWinnerQR" class="wide">OUTLAST — Declare winner</button>
     </div>
+    <button id="genBaseSignsHome" class="wide alt">PRINT BASE SIGNS</button>
     <button id="eraseHost" class="wide danger">Erase host setup</button>
+    <button id="hostBackFromPanel" class="wide alt">Back</button>
+  </div>
+  <div id="hostBatchForm" class="hidden">
+    <h2>Create Batch</h2>
+    <div class="row">
+      <button id="batchModeStandard" class="wide">Standard</button>
+      <button id="batchModeOutlast" class="wide alt">Outlast</button>
+    </div>
+    <label>Date<input id="batchDate" type="date"></label>
+    <label>Game Name<input id="batchGameName" maxlength="18"></label>
+    <label>Time<input id="batchGameTime" type="time"></label>
+    <div id="batchStandardFields">
+      <label>Lives<select id="batchLives"></select></label>
+      <label>Seconds<input id="batchSeconds" type="number" value="120"></label>
+      <label>Medic<select id="batchMedic"><option value="none">None</option><option value="one">1 Scan</option><option value="two">2 Scans</option></select></label>
+      <label>Respawn<select id="batchRespawnMode"><option value="base">Base Sign</option><option value="timed">Timed 10s</option></select></label>
+      <div class="row">
+        <label>Red Name<input id="batchLabelA" value="RED" maxlength="12"></label>
+        <label>Blue Name<input id="batchLabelB" value="BLUE" maxlength="12"></label>
+      </div>
+    </div>
+    <div id="batchStandardSigns">
+      <div class="row">
+        <label>Red Base<select id="batchBaseA"></select></label>
+        <label>Red Sign<select id="batchSignA"></select></label>
+      </div>
+      <div class="row">
+        <label>Blue Base<select id="batchBaseB"></select></label>
+        <label>Blue Sign<select id="batchSignB"></select></label>
+      </div>
+    </div>
+    <div id="batchOutlastFields" class="hidden">
+       <label>Start Radius (m)<input id="batchOlStartR" type="number" value="100"></label>
+       <label>Step Size (m)<input id="batchOlStep" type="number" value="20"></label>
+       <label>Interval (min)<input id="batchOlInterval" type="number" value="5"></label>
+       <button id="batchPickTarget" class="wide alt">📍 SET TARGET ON MAP</button>
+       <p id="batchTargetInfo" class="compact muted">No target set</p>
+    </div>
+    <details><summary>Artifacts for this game</summary><div id="batchArtifactList" class="hostArtifacts"></div></details>
+    <button id="addGameToBatch" class="wide">ADD GAME TO BATCH</button>
+    <div id="batchList" style="margin:10px 0"></div>
+    <button id="genBatchQRs" class="wide">GENERATE BATCH QRs</button>
+    <button id="batchBack" class="wide alt">Back</button>
+  </div>
+  <div id="hostBatchPanel" class="hidden">
+    <h2>Batch QRs</h2>
+    <p id="batchInfo" class="compact"></p>
+    <button id="printBatchArtifactsBtn" class="wide alt" style="display:none">PRINT ARTIFACTS</button>
+    <h3>Red Team JOIN</h3>
+    <div id="batchRedQR" class="qr"></div>
+    <h3>Blue Team JOIN</h3>
+    <div id="batchBlueQR" class="qr"></div>
+    <button id="batchPanelBack" class="wide alt">Back</button>
+  </div>
+  <div id="profileSetup" class="hidden">
+    <h2>Welcome to M.A.S.H.</h2>
+    <p class="compact">Before you join a game, please set your Callsign. This will be used for your Career and Armoury.</p>
+    <label>Callsign<input id="setupCallsign" maxlength="32"></label>
+    <button id="saveSetupCallsign" class="wide">SAVE & CONTINUE</button>
+  </div>
+  <div id="myGames" class="hidden">
+    <h2>MY GAMES</h2>
+    <p id="myGamesSummary" class="compact"></p>
+    <div id="joinsList"></div>
+    <button id="myGamesScan" class="wide alt">SCAN MORE GAMES</button>
+    <button id="myGamesBack" class="wide alt">Back</button>
   </div>
   <div id="joinPanel" class="hidden">
     <h2>Scan host JOIN code</h2>
@@ -229,19 +243,6 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <label>Callsign<input id="name" maxlength="32"></label>
     <button id="confirmJoin" class="wide">JOIN ASSIGNED TEAM</button>
     <button id="previewBack" class="wide alt">Back</button>
-  </div>
-  <div id="myGames" class="hidden">
-    <h2>My Games</h2>
-    <button id="myGamesScan" class="wide alt">📷 SCAN BATCH QR</button>
-    <div id="joinCamera" class="hidden" style="margin-bottom:12px"><div id="joinReader"></div><button id="joinStop" class="alt">Close camera</button></div>
-    <div id="joinsList" style="margin:12px 0;"></div>
-    <button id="myGamesBack" class="wide alt">Back</button>
-  </div>
-  <div id="batchCallsign" class="hidden">
-    <h2>Enter Callsign</h2>
-    <p class="compact">This will be used for all games this day.</p>
-    <label>Callsign<input id="batchCallsignInput" maxlength="32"></label>
-    <button id="saveCallsign" class="wide">SAVE</button>
   </div>
 </section>
 <section id="play" class="hidden">
@@ -265,13 +266,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <p id="identity"></p>
     <details id="pendingBox"><summary>Medic attempt</summary><p id="pendingInfo"></p><button id="cancelMedic">Cancel attempt</button></details>
     <details><summary>Events and export</summary><ol id="history"></ol><button id="export">Export this phone's log</button></details>
-    <details id="hostTools" class="hidden">
-      <summary>Host QR codes</summary>
-      <div class="row"><button id="playJA">JOIN RED</button><button id="playJB">JOIN BLUE</button></div>
-      <div class="row" id="playBaseBtns"><button id="playBA">BASE RED</button><button id="playBB">BASE BLUE</button></div>
-      <div id="playHostQR"></div>
-    </details>
-    <details><summary>Reset player</summary><button id="reset" class="danger">End this phone's game</button></details>
+    <details><summary>Session</summary><button id="endGame" class="wide">END CURRENT GAME</button><button id="reset" class="danger">End this phone's game</button></details>
   </section>
 </section>
 <footer class="mash-footer">
@@ -298,6 +293,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
       <div id="mapYouLabel">You</div>
     </div>
   </div>
+  <div id="mapCountdown"></div>
   <div id="mapStatus"></div>
   <div id="mapDebugPanel">
     <h3>Anchors JSON</h3>
@@ -316,10 +312,9 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 </div>
 <div id="printOverlay" class="hidden">
   <button id="printClose">✕</button>
-  <h2>Print or screenshot these QRs</h2>
-  <p class="compact" style="text-align:center;color:#c5d3cb">Hide each paper in the field. Destroy after collection.</p>
+  <h2>PRINT CODES</h2>
   <div id="printArea"></div>
-  <button id="printBtn" class="alt">PRINT / SAVE PDF</button>
+  <button id="printBtn" class="wide">PRINT</button>
 </div>
 <dialog id="dialog"><div id="dialogText"></div><button id="closeDialog">Close</button></dialog>
 <script>window.MASH_MODE='host';</script>
