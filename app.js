@@ -607,7 +607,27 @@ function renderSetup(){
   const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers;
   const hb=$('hostBaseBtns');if(hb)hb.classList.add('hidden');
   const hp=$('hostPlayingSection');if(hp)hp.classList.toggle('hidden',isOL);
-  const wm=$('hostWatchMap');if(wm){wm.style.display=isOL?'':'none';if(isOL&&h.outlast){const live=time()>=h.outlast.startEpoch;wm.textContent=live?'👁️ WATCH MAP (LIVE) — GAME IS ON':'👁️ WATCH MAP (LIVE) — STAND BY';wm.className=live?'wide':'wide alt'}}
+  
+  let liveText='👁️ WATCH MAP (LIVE) — GAME IS ON';
+  let liveClass='wide';
+  if(isOL && h.outlast){
+     const hostNow=time();
+     const iv=h.outlast.intervalMs||(h.outlast.intervalMin?h.outlast.intervalMin*60000:60000);
+     const stepsToEnd=Math.ceil((h.outlast.startRadius-h.outlast.endRadius)/h.outlast.step);
+     const countdownStart= h.outlast.startEpoch + (stepsToEnd * iv);
+     const gameEnd= countdownStart + 30000;
+     
+     if(hostNow < h.outlast.startEpoch) {
+         liveText='👁️ WATCH MAP (LIVE) — STAND BY';
+         liveClass='wide alt';
+     } else if (hostNow >= gameEnd) {
+         liveText='🏁 GAME OVER — VIEW MAP';
+         liveClass='wide danger';
+     }
+  }
+  const wm=$('hostWatchMap');
+  if(wm){wm.style.display=isOL?'':'none'; wm.textContent=liveText; wm.className=liveClass;}
+  
   const ws=$('winnerSection');
   if(ws){
    if(isOL&&time()>=h.outlast.startEpoch)ws.classList.remove('hidden');
@@ -1456,12 +1476,25 @@ setInterval(()=>{
   }
  }
  if(HOST_MODE&&h&&h.mode==='outlast'&&h.outlast){
-  const live=time()>=h.outlast.startEpoch;
+  const hostNow=time();
+  const iv=h.outlast.intervalMs||(h.outlast.intervalMin?h.outlast.intervalMin*60000:60000);
+  const stepsToEnd=Math.ceil((h.outlast.startRadius-h.outlast.endRadius)/h.outlast.step);
+  const countdownStart= h.outlast.startEpoch + (stepsToEnd * iv);
+  const gameEnd= countdownStart + 30000;
+  const isLive = hostNow >= h.outlast.startEpoch && hostNow < gameEnd;
+  const isEnded = hostNow >= gameEnd;
+  
   const wm=$('hostWatchMap');
   if(wm){
-   const wantText=live?'👁️ WATCH MAP (LIVE) — GAME IS ON':'👁️ WATCH MAP (LIVE) — STAND BY';
-   if(wm.textContent!==wantText){wm.textContent=wantText;wm.className=live?'wide':'wide alt'}
+     if(isEnded){
+         if(wm.textContent!=='🏁 GAME OVER — VIEW MAP'){ wm.textContent='🏁 GAME OVER — VIEW MAP'; wm.className='wide danger'; }
+     } else if(isLive){
+         if(wm.textContent!=='👁️ WATCH MAP (LIVE) — GAME IS ON'){ wm.textContent='👁️ WATCH MAP (LIVE) — GAME IS ON'; wm.className='wide'; }
+     } else {
+         if(wm.textContent!=='👁️ WATCH MAP (LIVE) — STAND BY'){ wm.textContent='👁️ WATCH MAP (LIVE) — STAND BY'; wm.className='wide alt'; }
+     }
   }
+  
   if(live!==lastHostOutlastLive){
    if(live){
     buzz('start');
@@ -1474,7 +1507,6 @@ setInterval(()=>{
    lastHostOutlastLive=live;
   }
   if(live){
-   const iv=h.outlast.intervalMs||(h.outlast.intervalMin?h.outlast.intervalMin*60000:60000);
    const step=Math.floor((time()-h.outlast.startEpoch)/iv);
    if(lastHostOutlastStep!==null&&step>lastHostOutlastStep)buzz('return');
    lastHostOutlastStep=step;
@@ -1486,4 +1518,3 @@ setInterval(()=>{
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){reconcile();secondsLeft();refreshOffer();render()}});
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>note('Offline cache registration failed.'));
 })();
- 
