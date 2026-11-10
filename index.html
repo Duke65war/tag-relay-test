@@ -33,7 +33,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .mapTool.active{background:#b8e96b;color:#111;border-color:#b8e96b}
 #mapBanner{position:fixed;bottom:64px;left:16px;right:16px;z-index:10000;background:#ffd653;color:#111;font-weight:800;font-size:15px;padding:10px;border-radius:8px;text-align:center;display:none}
 #mapStatus{position:fixed;bottom:16px;left:16px;right:16px;z-index:10000;background:rgba(0,0,0,0.85);color:#c5d3cb;font-size:12px;padding:8px;border-radius:8px;text-align:center;display:none;white-space:pre-line}
-#mapCountdown{position:fixed;bottom:60px;left:16px;right:16px;z-index:10001;background:rgba(200,40,40,0.95);color:#fff;font-weight:900;font-size:24px;padding:15px;border-radius:12px;text-align:center;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);border:2px solid #fff;text-transform:uppercase;animation:finalBlink 1s infinite;}
+#mapCountdown{position:fixed;bottom:calc(124px + env(safe-area-inset-bottom, 0px));left:16px;right:16px;z-index:10001;background:rgba(200,40,40,0.95);color:#fff;font-weight:900;font-size:24px;padding:15px;border-radius:12px;text-align:center;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);border:2px solid #fff;text-transform:uppercase;animation:finalBlink 1s infinite;pointer-events:none;}
 #mapDebugPanel{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:11000;display:none;padding:20px;flex-direction:column}
 #mapDebugPanel.on{display:flex}
 #mapDebugPanel h3{color:#b8e96b;margin:0 0 12px 0;font-size:18px}
@@ -80,12 +80,20 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
 .status-READY{background:#1f6b3a;color:#b3ffb0}
 .status-EXPIRED{background:#6b2a2a;color:#ffb5bd}
 .status-COMPLETED{background:#354d40;color:#c5d3cb}
+.status-SCHEDULE_UNAVAILABLE{background:#3d3d3d;color:#c5d3cb}
 .gameCardHint{font-size:12px;color:#c5d3cb;margin-bottom:8px}
 .gameCardBtns{display:flex;gap:6px}
 .gameCardBtns button{flex:1;min-height:auto;padding:8px;font-size:14px}
 .shrink-warning{font-size:20px;font-weight:900;color:#ffd653;text-shadow:0 2px 4px #000;margin-top:10px;animation:healPulse 1s infinite;}
 @keyframes finalBlink{0%,100%{opacity:1}50%{opacity:0.5}}
 .final-text{font-size:24px;font-weight:900;color:#ff5963;letter-spacing:2px;margin-top:15px;animation:finalBlink 1s infinite;text-transform:uppercase;}
+.release-tag{text-align:center;font-size:10px;color:#7a8b82;margin:10px 0 2px 0;letter-spacing:1px;}
+.progressCard{background:#2a4d3c;border:2px solid #75d868;border-radius:12px;padding:16px;margin:12px 0;text-align:center;}
+.progressCard h2{color:#b3ffb0;margin:0 0 4px 0;font-size:20px;}
+.progressCard .sub{color:#c5d3cb;font-size:14px;margin-bottom:10px;}
+.progressCard .count{color:#ffd653;font-size:16px;font-weight:800;margin:10px 0;}
+.progressCard button{margin-top:6px;width:100%;}
+.endSessionBtn{background:#e75961;color:white;width:100%;margin-top:8px;}
 @media print{
   body>*:not(#printOverlay){display:none!important}
   #printOverlay{position:static;background:#fff;color:#000;padding:0;overflow:visible}
@@ -119,14 +127,17 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   <div id="myGames" class="hidden">
     <h2>MY GAMES</h2>
     <p id="myGamesSummary" class="compact"></p>
+    <button id="myGamesActiveBtn" class="wide endSessionBtn hidden">BACK TO CURRENT GAME</button>
     <div id="joinsList"></div>
     <button id="myGamesScan" class="wide alt">SCAN MORE GAMES</button>
     <button id="myGamesBack" class="wide alt">Back</button>
+    <p class="release-tag" id="releaseTagMyGames"></p>
   </div>
   <div id="joinPanel" class="hidden">
     <h2>Scan host JOIN code</h2>
     <button id="joinScan" class="wide">SCAN QR</button>
     <div id="joinCamera" class="hidden"><div id="joinReader"></div><button id="joinStop" class="alt">Close camera</button></div>
+    <button id="joinActiveBtn" class="wide endSessionBtn hidden">BACK TO CURRENT GAME</button>
     <button id="joinBack" class="wide alt">Back</button>
   </div>
   <div id="preview" class="hidden">
@@ -153,12 +164,16 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
       <button id="armouryPlayBtn" class="alt">🪖 ARMOURY</button>
     </div>
   </section>
+  <section class="card">
+    <button id="endSessionActive" class="wide endSessionBtn">END SESSION</button>
+  </section>
   <section class="card"><h2>Tag Collection</h2><div id="trophies"></div><div id="medals"></div></section>
   <section class="card">
     <p id="identity"></p>
     <details id="pendingBox"><summary>Medic attempt</summary><p id="pendingInfo"></p><button id="cancelMedic">Cancel attempt</button></details>
     <details><summary>Events and export</summary><ol id="history"></ol><button id="export">Export this phone's log</button></details>
-    <details><summary>Session</summary><button id="endGame" class="wide">END CURRENT GAME</button><button id="reset" class="danger">End this phone's game</button></details>
+    <details><summary>Session</summary><button id="endGameDetails" class="wide">END CURRENT GAME</button><button id="reset" class="danger">End this phone's game</button></details>
+    <p class="release-tag" id="releaseTagPlay"></p>
   </section>
 </section>
 <footer class="mash-footer">
@@ -201,6 +216,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   <h2>ARMOURY</h2>
   <p id="armouryStatus"></p>
   <div id="armouryGrid"></div>
+  <p class="release-tag" id="releaseTagArmoury"></p>
 </div>
 <dialog id="dialog"><div id="dialogText"></div><button id="closeDialog">Close</button></dialog>
 <script>window.MASH_MODE='player';</script>
