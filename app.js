@@ -1322,34 +1322,30 @@ function applyBatchMode(){
  
  function updateMapCountdown(){
    if(!countdown)return;
-   if(s&&s.mode==='outlast'&&s.outlast){
-      const hostNow=time();
-      if(hostNow<s.outlast.startEpoch){
-         countdown.style.display='none';
-         return;
-      }
-      const iv=s.outlast.intervalMs||(s.outlast.intervalMin?s.outlast.intervalMin*60000:60000);
-      const stepsToEnd=Math.ceil((s.outlast.startRadius-s.outlast.endRadius)/s.outlast.step);
-      const countdownStart= s.outlast.startEpoch + (stepsToEnd * iv);
-      const gameEnd= countdownStart + 30000;
-      
-      if(hostNow>=gameEnd){
-         countdown.textContent='GAME OVER';countdown.style.display='block';
-      } else if(hostNow>=countdownStart){
-         let tLeft=Math.ceil((gameEnd-hostNow)/1000);
-         countdown.textContent=`KILL THEM ALL: 0:${String(tLeft).padStart(2,'0')}`;
+   const olData = (s && s.mode === 'outlast' && s.outlast) ? s.outlast : (h && h.mode === 'outlast' && h.outlast ? h.outlast : null);
+   if(!olData){ countdown.style.display='none'; return; }
+   const hostNow = time();
+   if(hostNow < olData.startEpoch){ countdown.style.display='none'; return; }
+   
+   const iv=olData.intervalMs||(olData.intervalMin?olData.intervalMin*60000:60000);
+   const stepsToEnd=Math.ceil((olData.startRadius-olData.endRadius)/olData.step);
+   const countdownStart= olData.startEpoch + (stepsToEnd * iv);
+   const gameEnd= countdownStart + 30000;
+   
+   if(hostNow>=gameEnd){
+      countdown.textContent='GAME OVER';countdown.style.display='block';
+   } else if(hostNow>=countdownStart){
+      let tLeft=Math.ceil((gameEnd-hostNow)/1000);
+      countdown.textContent=`KILL THEM ALL: 0:${String(tLeft).padStart(2,'0')}`;
+      countdown.style.display='block';
+   } else {
+      let nextShrink= olData.startEpoch + (Math.floor((hostNow-olData.startEpoch)/iv)+1)*iv;
+      if(nextShrink - hostNow <= 30000){
+         countdown.textContent=`NEXT SHRINK IN ${Math.ceil((nextShrink-hostNow)/1000)}s`;
          countdown.style.display='block';
       } else {
-         let nextShrink= s.outlast.startEpoch + (Math.floor((hostNow-s.outlast.startEpoch)/iv)+1)*iv;
-         if(nextShrink - hostNow <= 30000){
-            countdown.textContent=`NEXT SHRINK IN ${Math.ceil((nextShrink-hostNow)/1000)}s`;
-            countdown.style.display='block';
-         } else {
-            countdown.style.display='none';
-         }
+         countdown.style.display='none';
       }
-   } else {
-      countdown.style.display='none';
    }
  }
 
@@ -1360,6 +1356,7 @@ function applyBatchMode(){
  };
  window._hostWatchMap=()=>{
   reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
+  updateMapCountdown();
   showBanner('Host live view — boundary updates automatically',3000);
  };
  window._refreshBoundary=()=>{renderBoundary();updateMapCountdown()};
