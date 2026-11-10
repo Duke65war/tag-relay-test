@@ -1130,6 +1130,7 @@ if(HOST_MODE){
  const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
  const bpt=$('batchPickTarget');if(bpt)bpt.onclick=()=>{placingTarget=true;openMapForTarget()};
  bindClick('hostBack',()=>{view='choice';render()});
+ bindClick('hostBackFromPanel',()=>{view='choice';render()});
  bindClick('create',hostCreate);
  const ms=$('modeStandard'),mo=$('modeOutlast');
  if(ms)ms.onclick=()=>{hostMode='standard';applyHostMode();updateOutlastPreview()};
