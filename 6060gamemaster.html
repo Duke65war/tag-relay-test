@@ -138,7 +138,7 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
     <div id="livesLabel"><label>Lives<select id="lives"></select></label></div>
     <div id="secondsLabel"><label>Bleedout Time (sec)<input id="seconds" type="number" value="120"></label></div>
     <div id="medicLabel"><label>Medic<select id="medic"><option value="none">None</option><option value="one">1 Scan</option><option value="two">2 Scans</option></select></label></div>
-    <div id="respawnModeLabel"><label>Respawn Mode<select id="respawnMode"><option value="base">Base Sign</option><option value="timed">Timed 10s</option></select></label></div>
+    <div id="respawnModeLabel"><label>Respawn Mode<select id="respawnMode"><option value="base">Base Sign</option><option value="timed">Timed</option></select></label></div>
     <div class="row" style="margin-bottom:8px">
       <label>Red Name<input id="labelA" value="RED" maxlength="12"></label>
       <label>Blue Name<input id="labelB" value="BLUE" maxlength="12"></label>
@@ -189,19 +189,19 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
       <label>Lives<select id="batchLives"></select></label>
       <label>Seconds<input id="batchSeconds" type="number" value="120"></label>
       <label>Medic<select id="batchMedic"><option value="none">None</option><option value="one">1 Scan</option><option value="two">2 Scans</option></select></label>
-      <label>Respawn<select id="batchRespawnMode"><option value="base">Base Sign</option><option value="timed">Timed 10s</option></select></label>
-      <div class="row">
-        <label>Red Name<input id="batchLabelA" value="RED" maxlength="12"></label>
-        <label>Blue Name<input id="batchLabelB" value="BLUE" maxlength="12"></label>
-      </div>
+      <label>Respawn<select id="batchRespawnMode"><option value="base">Base Sign</option><option value="timed">Timed</option></select></label>
     </div>
     <div id="batchStandardSigns">
-      <div class="row">
+      <div class="row" style="margin-bottom:8px">
+        <label>Red Name<input id="batchLabelA" value="RED" maxlength="12"></label>
         <label>Red Base<select id="batchBaseA"></select></label>
-        <label>Red Sign<select id="batchSignA"></select></label>
       </div>
-      <div class="row">
+      <div class="row" style="margin-bottom:8px">
+        <label>Blue Name<input id="batchLabelB" value="BLUE" maxlength="12"></label>
         <label>Blue Base<select id="batchBaseB"></select></label>
+      </div>
+      <div class="row" style="margin-bottom:8px">
+        <label>Red Sign<select id="batchSignA"></select></label>
         <label>Blue Sign<select id="batchSignB"></select></label>
       </div>
     </div>
@@ -221,6 +221,8 @@ dialog.armoury h2,dialog.armoury h3,dialog.armoury p,dialog.armoury li,dialog.ar
   <div id="hostBatchPanel" class="hidden">
     <h2>Schedule QRs</h2>
     <p id="batchInfo" class="compact"></p>
+    <button id="printRedTeamBtn" class="wide">🖨️ PRINT RED TEAM QRs</button>
+    <button id="printBlueTeamBtn" class="wide alt">🖨️ PRINT BLUE TEAM QRs</button>
     <div id="batchQRList"></div>
     <button id="batchPanelBack" class="wide alt">Back</button>
     <p class="release-tag" id="releaseTagHostBatch"></p>
