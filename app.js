@@ -136,12 +136,6 @@ function countUniqueForSchedule(sId){
   joins.forEach(j=>{if(j.scheduleId===sId)seen.add(j.gid);});
   return seen.size;
 }
-function persistCandidate(candidate){
-  return new Promise(resolve=>{
-    const ok=saveJoins(candidate);
-    resolve(ok);
-  });
-}
 function getJoin(raw){
  let a=parse(raw);
  if(a[1]==='BATCH'){
@@ -304,7 +298,7 @@ function addGameToBatch(){
  const timeStr=$('batchGameTime').value;
  const gameDate=hostBatchDate;
  if(!gameDate){note('Pick a date first');return}
- if(!timeStr){note('Set a start time');return}
+ if(!timeStr){note('Set a valid time first.');return}
  const startEpoch=new Date(gameDate+'T'+timeStr).getTime();
  if(isNaN(startEpoch)){note('Invalid date/time');return}
  if(startEpoch<time()-60000){note('Start time is in the past');return}
@@ -325,8 +319,8 @@ function addGameToBatch(){
    const signA=$('batchSignA').value,signB=$('batchSignB').value;
    if(!/^[A-Z0-9 _-]{3,18}$/.test(game)||!ruleOK(rules)){note('Check rules: lives 1–20/U, time 30–600, distinct labels 1–12 chars.');return}
    if(rules.respawnMode==='base'&&baseA===baseB){note('Red and blue base locations must be different.');return}
-   if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signA||g.signB===signA))){note(`Sign ${signA} is already used in another game.`);return}
-   if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signB||g.signB===signB))){note(`Sign ${signB} is already used in another game.`);return}
+   if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signA||g.signB===signA))){if(!confirm(`Sign ${signA} is already used in another game. Reuse for this game?`))return;}
+   if(hostBatch.some(g=>g.mode!=='outlast'&&(g.signA===signB||g.signB===signB))){if(!confirm(`Sign ${signB} is already used in another game. Reuse for this game?`))return;}
    hostBatch.push({game,gid:hex(),startEpoch,mode:'standard',rules,baseA,baseB,signA,signB,artifacts:checked});
  }
  hostBatch.sort((a,b)=>a.startEpoch-b.startEpoch);
@@ -363,30 +357,54 @@ function renderBatchList(){
 }
 function generateBatchQR(){
  if(!hostBatch.length){note('Add at least one game');return}
+ const firstGame=hostBatch[0];
+ const firstHour=new Date(firstGame.startEpoch).getHours();
+ if(firstHour<10||firstHour>=15){
+  if(!confirm('Schedule starts outside normal hours (10:00–15:00). Proceed anyway?')) return;
+ }
  if(!hostScheduleId){hostScheduleId=hex();}
  const totalGames=hostBatch.length;
  hostBatch.forEach(g=>{if(!g.scheduleId)g.scheduleId=hostScheduleId;if(g.totalGames===undefined||g.totalGames===null)g.totalGames=totalGames;});
  view='hostBatchPanel';render();
  const container=$('batchQRList');if(!container)return;container.replaceChildren();
  hostBatch.forEach(g=>{
-   const card=document.createElement('div');card.className='card';
-   const title=document.createElement('h3');card.appendChild(title);
    if(g.mode==='outlast'){
-     title.textContent=g.game+' — SOLO';
+     const card=document.createElement('div');card.className='card';
+     const title=document.createElement('h3');title.textContent=g.game+' — SOLO';card.appendChild(title);
      const box=document.createElement('div');box.className='qr';card.appendChild(box);
      makeQR(box,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'S')),216);
-     const p=document.createElement('p');p.className='compact';p.textContent='Show to any player.';card.appendChild(p);
+     container.appendChild(card);
    } else {
-     title.textContent=g.game+' — RED';
-     const redBox=document.createElement('div');redBox.className='qr';card.appendChild(redBox);
-     makeQR(redBox,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'A')),216);
-     const titleB=document.createElement('h3');titleB.textContent=g.game+' — BLUE';card.appendChild(titleB);
-     const blueBox=document.createElement('div');blueBox.className='qr';card.appendChild(blueBox);
-     makeQR(blueBox,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'B')),216);
+     const card=document.createElement('div');card.className='card';
+     const title=document.createElement('h3');title.textContent=g.game+' — RED';card.appendChild(title);
+     const box=document.createElement('div');box.className='qr';card.appendChild(box);
+     makeQR(box,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'A')),216);
+     container.appendChild(card);
    }
+ });
+ hostBatch.forEach(g=>{
+   if(g.mode==='outlast')return;
+   const card=document.createElement('div');card.className='card';
+   const title=document.createElement('h3');title.textContent=g.game+' — BLUE';card.appendChild(title);
+   const box=document.createElement('div');box.className='qr';card.appendChild(box);
+   makeQR(box,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'B')),216);
    container.appendChild(card);
  });
  $('batchInfo').textContent=`${hostBatch.length} game${hostBatch.length>1?'s':''} in this schedule · scheduleId ${hostScheduleId.slice(0,8)}`;
+}
+function printBatchTeam(team){
+ const area=$('printArea');if(!area)return;area.replaceChildren();
+ hostBatch.forEach(g=>{
+   if(g.mode==='outlast'&&team!=='S')return;
+   if(g.mode==='standard'&&team==='S')return;
+   const wrapper=document.createElement('div');wrapper.className='printCard';
+   const title=document.createElement('h3');title.textContent=g.game+' · '+(g.mode==='outlast'?'SOLO':(team==='A'?'RED':'BLUE'));wrapper.appendChild(title);
+   const qbox=document.createElement('div');qbox.className='qr';wrapper.appendChild(qbox);
+   makeQR(qbox,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames:hostBatch.length},g.mode==='outlast'?'S':team)),216);
+   const p=document.createElement('p');p.className='code';p.textContent=new Date(g.startEpoch).toLocaleString();wrapper.appendChild(p);
+   area.appendChild(wrapper);
+ });
+ const po=$('printOverlay');if(po)po.classList.remove('hidden');
 }
 function printBatchArtifacts(){
  const area=$('printArea');if(!area)return;area.replaceChildren();
@@ -1177,6 +1195,8 @@ if(HOST_MODE){
  const bd=$('batchDate');if(bd)bd.onchange=e=>{hostBatchDate=e.target.value;};
  bindClick('genBatchQRs',generateBatchQR);
  bindClick('printBatchArtifactsBtn',printBatchArtifacts);
+ bindClick('printRedTeamBtn',()=>printBatchTeam('A'));
+ bindClick('printBlueTeamBtn',()=>printBatchTeam('B'));
  bindClick('batchBack',()=>{view='choice';render()});
  bindClick('batchPanelBack',()=>{view='choice';render()});
  const bms=$('batchModeStandard'),bmo=$('batchModeOutlast');if(bms)bms.onclick=()=>{batchMode='standard';applyBatchMode();};if(bmo)bmo.onclick=()=>{batchMode='outlast';applyBatchMode();};
@@ -1418,7 +1438,13 @@ function openMapForTarget(){if(window._openMapForTarget)window._openMapForTarget
  if(bsa&&bsb&&bba&&bbb){opt(bba,main);opt(bba,sec);opt(bba,safe);opt(bbb,main);opt(bbb,sec);opt(bbb,safe);bba.value='Church';bbb.value='Diego Garcia';for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;bsa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;bsb.appendChild(rb)}bsa.value='R1';bsb.value='B1';}
  if(sa&&sb){for(let i=1;i<=5;i++){let ra=document.createElement('option');ra.value='R'+i;ra.textContent='R'+i;sa.appendChild(ra);let rb=document.createElement('option');rb.value='B'+i;rb.textContent='B'+i;sb.appendChild(rb)}sa.value='R1';sb.value='B1';}
 })();
-(function(){['lives','batchLives'].forEach(id=>{const el=$(id);if(!el)return;for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;el.append(x)}})})();
+(function(){
+ ['lives','batchLives'].forEach(id=>{
+  const el=$(id);if(!el)return;
+  for(let i=1;i<=20;i++){let x=document.createElement('option');x.value=String(i);x.textContent=String(i);if(i===5)x.selected=true;el.append(x);}
+  let u=document.createElement('option');u.value='U';u.textContent='Unlimited';el.append(u);
+ });
+})();
 if(HOST_MODE){
  try{let raw=localStorage.getItem(HOST);if(raw){let x=JSON.parse(raw);if(x.version!==4||!idOK(x.gid))throw Error('host');h=x;if(!h.mode)h.mode='standard';view='hostPanel'}}catch(e){note('Saved host game unreadable.')}
 }
