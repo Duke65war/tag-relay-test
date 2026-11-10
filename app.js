@@ -1,5 +1,6 @@
 (()=>{'use strict';
 const KEY='mash-unit-v4',HOST='mash-unit-v4-host',ANCHOR_KEY='mash-unit-anchors',CAREER_KEY='mash-unit-career',JOINS_KEY='mash-unit-joins',V='MU4',$=id=>document.getElementById(id),time=()=>Date.now(),hex=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,'0')).join('');
+const RELEASE='P2-2026-11-10-01';
 const HOST_MODE=(()=>{try{return typeof window!=='undefined'&&window.MASH_MODE==='host'}catch(e){return false}})();
 const BASES={
  'Jb':{lat:-37.308088,lng:174.688677,group:'main'},
@@ -37,7 +38,7 @@ const FIVE_WEEKS=5*7*24*60*60*1000,EIGHT_WEEKS=8*7*24*60*60*1000;
 const OUTLAST_BLEEDOUT=120000;
 const OUTLAST_END_RADIUS=5;
 let s=null,h=null,pending=null,view='choice',scanner=null,busy=false,offerShown='',offerSlot=-1,currentScanMode='normal',anchors=null,mapWatchId=null,calibrating=null,career=null,joins=[];
-let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null,hostBatch=[],hostBatchDate='',batchMode='standard',batchTarget=null;
+let lastGpsPos=null,boundaryWatchId=null,outOfBoundsSince=0,lastGpsBuzz=0,placingTarget=false,hostMode='standard',hostTarget=null,hostBatch=[],hostBatchDate='',batchMode='standard',batchTarget=null,hostScheduleId=null;
 let lastOutlastLive=null,lastOutlastStep=null,lastHostOutlastLive=null,lastHostOutlastStep=null;
 let pendingScanAction=null;
 let previewFromMyGames=false;
@@ -52,6 +53,7 @@ function persist(x){try{localStorage.setItem(KEY,JSON.stringify(x));s=x;render()
 function edit(fn){if(!s)return false;let x=JSON.parse(JSON.stringify(s));fn(x);return persist(x)}
 function saveHost(x){try{localStorage.setItem(HOST,JSON.stringify(x));h=x;return true}catch(e){note('Host setup could not be saved. Do not share game QRs.');return false}}
 function makeQR(node,text,size=216){if(!node)return;node.replaceChildren();if(typeof QRCode!=='function'){node.textContent='QR library not loaded.';return}try{new QRCode(node,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){node.textContent='QR drawing failed'}}
+function releaseTag(){return 'M.A.S.H. '+RELEASE;}
 /* --- CAREER --- */
 function loadCareer(){try{const raw=localStorage.getItem(CAREER_KEY);if(raw){const c=JSON.parse(raw);if(c&&typeof c.lastPlayed==='number'&&Array.isArray(c.artefacts)){career=c;if(!Array.isArray(career.outlastWins))career.outlastWins=[];if(typeof career.lifetimeTags!=='number')career.lifetimeTags=0;if(typeof career.lifetimeMedics!=='number')career.lifetimeMedics=0;return}}}catch(e){}career={lastPlayed:Date.now(),artefacts:[],outlastWins:[],lifetimeTags:0,lifetimeMedics:0}}
 function saveCareer(){try{localStorage.setItem(CAREER_KEY,JSON.stringify(career));return true}catch(e){note('Career save failed.');return false}}
@@ -63,17 +65,20 @@ function careerAdd(gunId,gameName,artifactId){if(careerHas(artifactId))return fa
 function careerAddOutlastWin(gid,hostStamp){if(!career.outlastWins)career.outlastWins=[];const key=gid+'_'+hostStamp;if(career.outlastWins.some(w=>w.key===key))return false;career.outlastWins.push({key,gid,at:time()});saveCareer();return true}
 /* --- JOINS --- */
 function loadJoins(){try{const raw=localStorage.getItem(JOINS_KEY);if(raw){const j=JSON.parse(raw);if(Array.isArray(j)){joins=j;return}}}catch(e){}joins=[]}
-function saveJoins(){try{localStorage.setItem(JOINS_KEY,JSON.stringify(joins));return true}catch(e){note('Failed to save games to phone');return false}}
-function updateJoinsStatus(){joins.forEach(j=>{
+function saveJoins(list){try{localStorage.setItem(JOINS_KEY,JSON.stringify(list));return true}catch(e){note('Failed to save games to phone');return false}}
+function updateJoinsStatus(){
+ joins.forEach(j=>{
   if(j.status==='COMPLETED')return;
+  if(j.status==='SCHEDULE_UNAVAILABLE')return;
+  if(!Number.isFinite(j.startEpoch)||j.startEpoch<=0){j.status='SCHEDULE_UNAVAILABLE';return;}
   const now=time();
-  const start=j.startEpoch;
-  const windowOpen=start-(30*60*1000);
-  const windowClose=start+(30*60*1000);
+  const windowOpen=j.startEpoch-(30*60*1000);
+  const windowClose=j.startEpoch+(30*60*1000);
   if(now<windowOpen)j.status='WAITING';
   else if(now>=windowOpen&&now<=windowClose)j.status='READY';
   else j.status='EXPIRED';
-});}
+ });
+}
 function launchGame(gid){
  const j=joins.find(x=>x.gid===gid);
  if(!j)return;
@@ -92,16 +97,16 @@ function currentRadius(o,hostNow){if(!o)return null;if(hostNow<o.startEpoch)retu
 const code=(type,...values)=>JSON.stringify([V,type,...values]);
 const joinArray=(gd,t)=>{
  if(gd.mode==='outlast'){
-  return [V,'J',gd.gid,gd.game,1,120,'none','S','T','S','outlast',gd.startEpoch,time(),gd.targetLat,gd.targetLng,gd.startRadius,OUTLAST_END_RADIUS,gd.step,gd.intervalMs];
+  return [V,'J',gd.gid,gd.game,1,120,'none','S','T','S','outlast',gd.startEpoch,time(),gd.targetLat,gd.targetLng,gd.startRadius,OUTLAST_END_RADIUS,gd.step,gd.intervalMs,gd.scheduleId||null,gd.totalGames||null];
  }
  const baseLoc = t==='A' ? gd.baseA : gd.baseB;
  const b = BASES[baseLoc] || {lat:0, lng:0};
  const sign = t==='A' ? (gd.signA||'R1') : (gd.signB||'B1');
- return [V,'J',gd.gid,gd.game,gd.rules.lives,gd.rules.seconds,gd.rules.medic,gd.rules.a,gd.rules.b,t,sign,b.lat,b.lng,gd.rules.respawnMode,gd.startEpoch];
+ return [V,'J',gd.gid,gd.game,gd.rules.lives,gd.rules.seconds,gd.rules.medic,gd.rules.a,gd.rules.b,t,sign,b.lat,b.lng,gd.rules.respawnMode,gd.startEpoch,gd.scheduleId||null,gd.totalGames||null];
 };
 const joinCode=t=>{
  if(h.mode==='outlast'&&h.outlast){
-  return code('J',h.gid,h.game,1,120,'none','S','T','S','outlast',h.outlast.startEpoch,time(),h.outlast.targetLat,h.outlast.targetLng,h.outlast.startRadius,OUTLAST_END_RADIUS,h.outlast.step,h.outlast.intervalMin*60000);
+  return code('J',h.gid,h.game,1,120,'none','S','T','S','outlast',h.outlast.startEpoch,time(),h.outlast.targetLat,h.outlast.targetLng,h.outlast.startRadius,OUTLAST_END_RADIUS,h.outlast.step,h.outlast.intervalMin*60000,h.scheduleId||null,h.totalGames||null);
  }
  return JSON.stringify(joinArray(h,t));
 };
@@ -111,71 +116,141 @@ function offerCode(){let o=s.offer,r=s.rules;return code('O',s.gid,r.lives,r.sec
 function returnCode(type,owner,offer){return code(type,s.gid,offer.id,owner.id,owner.name,offer.deadline||0)}
 function thanksCode(offerId,medicId,victimName,deadline){return code('K',s.gid,offerId,medicId,victimName,deadline)}
 function parse(raw){let a;try{a=JSON.parse(String(raw||'').trim())}catch(e){throw Error('Not a valid M.A.S.H. QR')}if(!Array.isArray(a)||a[0]!==V||!['J','B','O','T','H','K','A','W','SIGN','BATCH'].includes(a[1]))throw Error('Wrong game QR version or type');return a}
+function validateScheduleMeta(sId,total,existing){
+  const hasId=sId!==null&&sId!==undefined;
+  const hasTotal=total!==null&&total!==undefined;
+  if(!hasId&&!hasTotal)return {scheduleId:null,totalGames:null};
+  if(hasId&&hasTotal){
+    if(!idOK(sId))throw Error('Invalid scheduleId format.');
+    if(!Number.isSafeInteger(total)||total<1||total>20)throw Error('Invalid totalGames.');
+    if(existing){
+      const conflict=joins.find(j=>j.scheduleId===sId&&j.totalGames!==null&&j.totalGames!==total);
+      if(conflict)throw Error('Schedule '+sId.slice(0,8)+' already has '+conflict.totalGames+' games, this QR says '+total+'. Regenerate consistent QRs.');
+    }
+    return {scheduleId:sId,totalGames:total};
+  }
+  throw Error('Incomplete schedule metadata. Ask host to regenerate.');
+}
+function countUniqueForSchedule(sId){
+  const seen=new Set();
+  joins.forEach(j=>{if(j.scheduleId===sId)seen.add(j.gid);});
+  return seen.size;
+}
+function persistCandidate(candidate){
+  return new Promise(resolve=>{
+    const ok=saveJoins(candidate);
+    resolve(ok);
+  });
+}
 function getJoin(raw){
  let a=parse(raw);
- if(s)throw Error('This phone already joined a game; reset explicitly to join another');
  if(a[1]==='BATCH'){
    if(!Array.isArray(a[2]))throw Error('Malformed batch');
-   /* Validate all entries into a temporary list; do not touch joins until the whole batch passes. */
    const validated=[];
    let duplicateCount=0;
    for(const j of a[2]){
-     let p;
-     try{p=parse(JSON.stringify(j))}catch(e){throw Error('Batch contains an invalid entry. Ask host to regenerate.')}
-     if(p[1]!=='J')throw Error('Batch contains a non-JOIN entry. Ask host to regenerate.');
+     let p;try{p=parse(JSON.stringify(j))}catch(e){throw Error('Batch contains an invalid entry.')}
+     if(p[1]!=='J')throw Error('Batch contains a non-JOIN entry.');
      if(p.length>=19&&p[10]==='outlast'){
         const gid=p[2],game=p[3],startEpoch=p[11],hostNow=p[12],targetLat=p[13],targetLng=p[14],startRadius=p[15],endRadius=p[16],step=p[17],intervalMs=p[18];
-        if(!idOK(gid)||typeof game!=='string'||!/^[A-Z0-9 _-]{3,18}$/.test(game))throw Error('Invalid OUTLAST entry');
-        if(!Number.isFinite(startEpoch)||!Number.isFinite(hostNow)||!Number.isFinite(targetLat)||!Number.isFinite(targetLng))throw Error('Invalid OUTLAST entry');
-        if(!Number.isFinite(startRadius)||!Number.isFinite(endRadius)||!Number.isFinite(step)||!Number.isFinite(intervalMs))throw Error('Invalid OUTLAST entry');
         if(joins.some(x=>x.gid===gid)){duplicateCount++;continue;}
-        if(validated.some(x=>x.gid===gid)){duplicateCount++;continue;}
-        validated.push({gid,game,startEpoch,status:'WAITING',payload:{gid,game,rules:{lives:'1',seconds:120,medic:'none',a:'S',b:'T',respawnMode:'base'},team:'S',mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset:0}}});
+        validated.push({gid,game,startEpoch,scheduleId:null,totalGames:null,status:'WAITING',payload:{gid,game,rules:{lives:'1',seconds:120,medic:'none',a:'S',b:'T',respawnMode:'base'},team:'S',mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset:0}}});
      } else if(p.length>=15&&['A','B'].includes(p[9])){
         const gid=p[2],game=p[3];
         let rules={lives:String(p[4]),seconds:p[5],medic:p[6],a:p[7],b:p[8],respawnMode:p[13]||'base'};
         if(!ruleOK(rules))throw Error('Invalid game settings in batch');
         const startEpoch=p[14];
-        if(!Number.isSafeInteger(startEpoch)||startEpoch<=0)throw Error('Batch entry missing valid start time. Ask host to regenerate with the updated app.');
         if(joins.some(x=>x.gid===gid)){duplicateCount++;continue;}
-        if(validated.some(x=>x.gid===gid)){duplicateCount++;continue;}
-        validated.push({gid,game,startEpoch,status:'WAITING',payload:{gid,game,rules,team:p[9],mode:'standard',baseSign:p[10],baseLat:p[11],baseLng:p[12]}});
-     } else {
-        throw Error('This batch QR was made with an old host app. Regenerate using the updated host.');
-     }
+        validated.push({gid,game,startEpoch,scheduleId:null,totalGames:null,status:Number.isSafeInteger(startEpoch)&&startEpoch>0?'WAITING':'SCHEDULE_UNAVAILABLE',payload:{gid,game,rules,team:p[9],mode:'standard',baseSign:p[10],baseLat:p[11],baseLng:p[12]}});
+     } else throw Error('Unrecognised batch entry.');
    }
    if(validated.length===0&&duplicateCount>0){note('All games already saved.');return;}
-   if(validated.length===0){throw Error('No games in batch');}
-   validated.forEach(v=>joins.push(v));
-   if(!saveJoins()){/* saveJoins already noted error; but keep in-memory consistent by reloading. */loadJoins();throw Error('Could not save games. Try again.');}
-   if(!career.callsign){view='batchCallsign';render();note('Enter your callsign to save these games.');}
-   else {view='myGames';render();note(`${validated.length} new, ${duplicateCount} already saved.`);}
+   if(validated.length===0)throw Error('No games in batch');
+   const candidate=joins.concat(validated);
+   if(!saveJoins(candidate)){throw Error('Could not save games. Try again.');}
+   joins=candidate;
+   if(!career.callsign){view='profileSetup';render();note('Enter your callsign.');}
+   else {view='myGames';render();note(validated.length+' games added.');}
    return;
  }
  if(a[1]!=='J')throw Error('Not a valid team JOIN QR');
- if(h&&h.gid!==a[2])throw Error('Host setup belongs to another game');
+ if(HOST_MODE&&h&&h.gid!==a[2])throw Error('Host setup belongs to another game.');
  if(a.length>=19&&a[10]==='outlast'){
   const gid=a[2],game=a[3];
   if(!idOK(gid)||typeof game!=='string'||!/^[A-Z0-9 _-]{3,18}$/.test(game))throw Error('Invalid game');
   const startEpoch=a[11],targetLat=a[13],targetLng=a[14],startRadius=a[15],endRadius=a[16],step=a[17],intervalMs=a[18];
   if(!Number.isFinite(startEpoch)||!Number.isFinite(targetLat)||!Number.isFinite(targetLng))throw Error('Invalid OUTLAST data');
   if(!Number.isFinite(startRadius)||!Number.isFinite(endRadius)||!Number.isFinite(step)||!Number.isFinite(intervalMs))throw Error('Invalid OUTLAST schedule');
-  if(time()>startEpoch+1800000)throw Error('This game already started. Ask host for a new one.');
-  const rules={lives:'1',seconds:120,medic:'none',a:'S',b:'T',respawnMode:'base'};
-  pending={gid,game,rules,team:'S',mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset:0}};
-  previewFromMyGames=false;
-  view='preview';render();note('OUTLAST game. Enter your callsign.');
+  let sId=null,tot=null;
+  if(a.length>=21){const meta=validateScheduleMeta(a[19],a[20],true);sId=meta.scheduleId;tot=meta.totalGames;}
+  const entry={gid,game,startEpoch,scheduleId:sId,totalGames:tot,status:Number.isSafeInteger(startEpoch)&&startEpoch>0?'WAITING':'SCHEDULE_UNAVAILABLE',payload:{gid,game,rules:{lives:'1',seconds:120,medic:'none',a:'S',b:'T',respawnMode:'base'},team:'S',mode:'outlast',outlast:{targetLat,targetLng,startRadius,endRadius,step,intervalMs,startEpoch,offset:0}}};
+  const existing=joins.find(x=>x.gid===gid);
+  if(existing){
+    if(existing.status==='COMPLETED'){note('This game is already completed.');return;}
+    if(s&&s.gid===gid){note('This game is in progress.');return;}
+    const changed=existing.startEpoch!==startEpoch;
+    if(!changed){note('Already saved.');return;}
+    if(!confirm('Update saved game?\nOld start: '+new Date(existing.startEpoch).toLocaleString()+'\nNew start: '+new Date(startEpoch).toLocaleString())){note('No change.');return;}
+    const candidate=joins.map(j=>j.gid===gid?{...entry}:j);
+    if(!saveJoins(candidate)){throw Error('Could not update. Try again.');}
+    joins=candidate;
+    note('Updated.');
+    if(sId){showProgress(sId);}else{view='myGames';render();}
+    return;
+  }
+  const candidate=joins.concat([entry]);
+  if(!saveJoins(candidate)){throw Error('Could not save. Try again.');}
+  joins=candidate;
+  if(sId){showProgress(sId);}else{view='myGames';render();note('Game saved.');}
   return;
  }
  if(a.length>=13&&['A','B'].includes(a[9])){
   let rules={lives:String(a[4]),seconds:a[5],medic:a[6],a:a[7],b:a[8],respawnMode:a[13]||'base'};
   if(!ruleOK(rules))throw Error('Invalid game settings');
-  pending={gid:a[2],game:a[3],rules,team:a[9],mode:'standard',baseSign:a[10],baseLat:a[11],baseLng:a[12]};
-  previewFromMyGames=false;
-  view='preview';render();note('Team assigned by host QR. Enter your callsign.');
+  const gid=a[2],game=a[3];
+  const startEpoch=a.length>=15?a[14]:null;
+  let sId=null,tot=null;
+  if(a.length>=17){const meta=validateScheduleMeta(a[15],a[16],true);sId=meta.scheduleId;tot=meta.totalGames;}
+  const entry={gid,game,startEpoch,scheduleId:sId,totalGames:tot,status:Number.isSafeInteger(startEpoch)&&startEpoch>0?'WAITING':'SCHEDULE_UNAVAILABLE',payload:{gid,game,rules,team:a[9],mode:'standard',baseSign:a[10],baseLat:a[11],baseLng:a[12]}};
+  const existing=joins.find(x=>x.gid===gid);
+  if(existing){
+    if(existing.status==='COMPLETED'){note('This game is already completed.');return;}
+    if(s&&s.gid===gid){note('This game is in progress.');return;}
+    const oldTime=existing.startEpoch?new Date(existing.startEpoch).toLocaleString():'—';
+    const newTime=startEpoch?new Date(startEpoch).toLocaleString():'—';
+    const changed=existing.startEpoch!==startEpoch||existing.payload.team!==a[9];
+    if(!changed){note('Already saved.');return;}
+    if(!confirm('Update saved game?\nOld: '+oldTime+' · '+existing.payload.team+'\nNew: '+newTime+' · '+a[9])){note('No change.');return;}
+    const candidate=joins.map(j=>j.gid===gid?{...entry}:j);
+    if(!saveJoins(candidate)){throw Error('Could not update. Try again.');}
+    joins=candidate;
+    note('Updated.');
+    if(sId){showProgress(sId);}else{view='myGames';render();}
+    return;
+  }
+  const candidate=joins.concat([entry]);
+  if(!saveJoins(candidate)){throw Error('Could not save. Try again.');}
+  joins=candidate;
+  if(sId){showProgress(sId);}else{view='myGames';render();note('Game saved.');}
   return;
  }
  throw Error('Not a valid team JOIN QR');
+}
+function showProgress(sId){
+  const saved=countUniqueForSchedule(sId);
+  const meta=joins.find(j=>j.scheduleId===sId);
+  const total=meta?meta.totalGames:saved;
+  view='myGames';
+  renderSetup();
+  const list=$('joinsList');if(!list)return;
+  const card=document.createElement('div');card.className='progressCard';
+  const h2=document.createElement('h2');h2.textContent=saved>=total?`ALL ${total} GAMES SAVED`:`GAME ${saved} OF ${total} SAVED`;card.appendChild(h2);
+  if(saved<total){
+    const sub=document.createElement('div');sub.className='sub';sub.textContent=`${total-saved} more to scan`;card.appendChild(sub);
+    const scan=document.createElement('button');scan.textContent='SCAN NEXT GAME';scan.onclick=()=>scan('join');card.appendChild(scan);
+  }
+  const view2=document.createElement('button');view2.className='alt';view2.textContent='VIEW MY GAMES';view2.onclick=()=>{view='myGames';render();};card.appendChild(view2);
+  list.insertBefore(card,list.firstChild);
 }
 function hostCreate(){
  if(!HOST_MODE)return;
@@ -233,7 +308,7 @@ function addGameToBatch(){
  const startEpoch=new Date(gameDate+'T'+timeStr).getTime();
  if(isNaN(startEpoch)){note('Invalid date/time');return}
  if(startEpoch<time()-60000){note('Start time is in the past');return}
- if(hostBatch.some(g=>g.game===game)){note('Game name already used in this batch');return}
+ if(hostBatch.some(g=>g.game===game)){note('Game name already used in this schedule');return}
  
  const checked=[];document.querySelectorAll('#batchArtifactList input:checked').forEach(cb=>checked.push(cb.value));
  
@@ -276,11 +351,11 @@ function renderBatchList(){
  if(!hostBatch.length){list.textContent='No games added yet.';return}
  hostBatch.forEach((g,i)=>{
   let div=document.createElement('div');div.style.cssText='background:#30443a;padding:8px;margin:4px 0;border-radius:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;';
-  let time=new Date(g.startEpoch).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  let timeStr=new Date(g.startEpoch).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   let details = g.mode==='outlast' ? `Target: ${g.startRadius}m → 5m` : `Red: ${g.signA} @ ${g.baseA} · Blue: ${g.signB} @ ${g.baseB}`;
   let summary = getBatchSummary(g);
   let artText = g.artifacts && g.artifacts.length ? `<br><span class="compact" style="color:#ffd653">Artifacts: ${g.artifacts.length}</span>` : '';
-  div.innerHTML=`<div><strong>${g.game}</strong> @ ${time}<br><span class="compact muted">${details}</span><br><span class="compact" style="color:#75d868">${summary}</span>${artText}</div>`;
+  div.innerHTML=`<div><strong>${g.game}</strong> @ ${timeStr}<br><span class="compact muted">${details}</span><br><span class="compact" style="color:#75d868">${summary}</span>${artText}</div>`;
   let btn=document.createElement('button');btn.textContent='✕';btn.className='danger';btn.style.cssText='padding:4px 8px; min-height:auto; font-size:12px;';btn.onclick=()=>{hostBatch.splice(i,1);renderBatchList();};
   div.appendChild(btn);
   list.appendChild(div);
@@ -288,29 +363,30 @@ function renderBatchList(){
 }
 function generateBatchQR(){
  if(!hostBatch.length){note('Add at least one game');return}
- const d=new Date(hostBatchDate);
- const day=d.getDay();
- if(day>=2&&day<=5){
-  if(!confirm(`You selected a ${d.toLocaleDateString([], {weekday:'long'})}. Are you sure?`)) return;
- }
- const firstGame=hostBatch[0];
- const firstHour=new Date(firstGame.startEpoch).getHours();
- if(firstHour>=12||firstHour<8){
-  if(!confirm('No morning game detected (08:00-11:30). Proceed anyway?')) return;
- }
- const redPayload=[V,'BATCH',[]];
- const bluePayload=[V,'BATCH',[]];
- let hasArtifacts = false;
- hostBatch.forEach(g=>{
-  redPayload[2].push(joinArray(g,'A'));
-  bluePayload[2].push(joinArray(g,'B'));
-  if(g.artifacts && g.artifacts.length > 0) hasArtifacts = true;
- });
+ if(!hostScheduleId){hostScheduleId=hex();}
+ const totalGames=hostBatch.length;
+ hostBatch.forEach(g=>{if(!g.scheduleId)g.scheduleId=hostScheduleId;if(g.totalGames===undefined||g.totalGames===null)g.totalGames=totalGames;});
  view='hostBatchPanel';render();
- makeQR($('batchRedQR'),JSON.stringify(redPayload),216);
- makeQR($('batchBlueQR'),JSON.stringify(bluePayload),216);
- $('batchInfo').textContent=`${hostBatch.length} games loaded for ${new Date(hostBatchDate).toLocaleDateString([], {weekday:'long',month:'short',day:'numeric'})}`;
- $('printBatchArtifactsBtn').style.display = hasArtifacts ? '' : 'none';
+ const container=$('batchQRList');if(!container)return;container.replaceChildren();
+ hostBatch.forEach(g=>{
+   const card=document.createElement('div');card.className='card';
+   const title=document.createElement('h3');card.appendChild(title);
+   if(g.mode==='outlast'){
+     title.textContent=g.game+' — SOLO';
+     const box=document.createElement('div');box.className='qr';card.appendChild(box);
+     makeQR(box,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'S')),216);
+     const p=document.createElement('p');p.className='compact';p.textContent='Show to any player.';card.appendChild(p);
+   } else {
+     title.textContent=g.game+' — RED';
+     const redBox=document.createElement('div');redBox.className='qr';card.appendChild(redBox);
+     makeQR(redBox,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'A')),216);
+     const titleB=document.createElement('h3');titleB.textContent=g.game+' — BLUE';card.appendChild(titleB);
+     const blueBox=document.createElement('div');blueBox.className='qr';card.appendChild(blueBox);
+     makeQR(blueBox,JSON.stringify(joinArray({...g,scheduleId:hostScheduleId,totalGames},'B')),216);
+   }
+   container.appendChild(card);
+ });
+ $('batchInfo').textContent=`${hostBatch.length} game${hostBatch.length>1?'s':''} in this schedule · scheduleId ${hostScheduleId.slice(0,8)}`;
 }
 function printBatchArtifacts(){
  const area=$('printArea');if(!area)return;area.replaceChildren();
@@ -331,7 +407,7 @@ function printBatchArtifacts(){
      });
    }
  });
- if(!hasAny){note('No artifacts selected in any batch games');return}
+ if(!hasAny){note('No artifacts selected in any games');return}
  const po=$('printOverlay');if(po)po.classList.remove('hidden');
 }
 function join(){
@@ -499,11 +575,7 @@ async function accept(raw){
  reconcile();if(!s)throw Error('Join a team first');
  if(outlastNotStarted())throw Error('Game has not started yet.');
  let a=parse(raw);
- if(a[1]==='BATCH'){
-   if(!Array.isArray(a[2]))throw Error('Malformed batch');
-   note('Batch QRs are for initial setup. Tap MY GAMES to load them.');
-   return;
- }
+ if(a[1]==='BATCH'){if(!Array.isArray(a[2]))throw Error('Malformed batch');note('Batch QRs are not used for scheduled games.');return;}
  if(a[1]==='SIGN'){
   if(a.length!==3||typeof a[2]!=='string'||!/^[RB][1-5]$/.test(a[2]))throw Error('Malformed sign QR');
   if(!s.baseSign)throw Error('No sign assigned to your base in this game.');
@@ -580,11 +652,13 @@ function statusLabel(st){
  if(st==='READY')return 'JOIN AVAILABLE';
  if(st==='EXPIRED')return 'JOIN WINDOW CLOSED';
  if(st==='COMPLETED')return 'COMPLETED';
+ if(st==='SCHEDULE_UNAVAILABLE')return 'SCHEDULE UNAVAILABLE';
  return st;
 }
 function cardHint(j,now){
  if(j.status==='COMPLETED')return 'Ended';
  if(j.status==='EXPIRED')return 'Ask host if late entry is required';
+ if(j.status==='SCHEDULE_UNAVAILABLE')return 'No start time on QR';
  if(j.status==='READY'){const close=j.startEpoch+30*60*1000;return `Joining closes at ${new Date(close).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;}
  const open=j.startEpoch-30*60*1000;
  return `Joining opens at ${new Date(open).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
@@ -593,9 +667,14 @@ function renderSetup(){
  const st=$('setup'),pl=$('play');
  if(st)st.classList.toggle('hidden',!!s);
  if(pl)pl.classList.toggle('hidden',!s);
- if(s)return;
  let v=(HOST_MODE&&h&&view==='choice')?'hostPanel':view;
- ['choice','profileSetup','myGames','hostForm','hostPanel','joinPanel','preview','hostBatchForm','hostBatchPanel','batchCallsign'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
+ ['choice','profileSetup','myGames','hostForm','hostPanel','joinPanel','preview','hostBatchForm','hostBatchPanel'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('hidden',id!==v)});
+ if(HOST_MODE&&h&&view==='choice'){const hp=$('hostPanel');if(hp)hp.classList.remove('hidden');}
+ const rtm=$('releaseTagMyGames');if(rtm)rtm.textContent=releaseTag();
+ const rtpl=$('releaseTagPlay');if(rtpl)rtpl.textContent=releaseTag();
+ const rta=$('releaseTagArmoury');if(rta)rta.textContent=releaseTag();
+ const rthp=$('releaseTagHostPanel');if(rthp)rthp.textContent=releaseTag();
+ const rthb=$('releaseTagHostBatch');if(rthb)rthb.textContent=releaseTag();
  if(v==='hostPanel'&&h){
   const hi=$('hostInfo');
   if(hi)hi.textContent=h.mode==='outlast'?`${h.game} · ${h.gid.slice(0,8)} · ${outlastRuleText(h.outlast)}`:`${h.game} · ${h.gid.slice(0,8)} · ${ruleText(h.rules)} · RED ${h.rules.a} (${h.signA||'R1'}) @ ${h.baseA} / BLUE ${h.rules.b} (${h.signB||'B1'}) @ ${h.baseB}`;
@@ -605,9 +684,7 @@ function renderSetup(){
   const hq=$('hostQR');if(hq&&!hq.childNodes.length)hostDraw('J','A','hostQR');
   renderArtifactCheckboxes();
   const uc=$('unlockCareers');if(uc)uc.checked=!!h.unlockCareers;
-  const hb=$('hostBaseBtns');if(hb)hb.classList.add('hidden');
   const hp=$('hostPlayingSection');if(hp)hp.classList.toggle('hidden',isOL);
-  
   let liveText='👁️ WATCH MAP (LIVE) — GAME IS ON';
   let liveClass='wide';
   if(isOL && h.outlast){
@@ -616,23 +693,13 @@ function renderSetup(){
      const stepsToEnd=Math.ceil((h.outlast.startRadius-h.outlast.endRadius)/h.outlast.step);
      const countdownStart= h.outlast.startEpoch + (stepsToEnd * iv);
      const gameEnd= countdownStart + 30000;
-     
-     if(hostNow < h.outlast.startEpoch) {
-         liveText='👁️ WATCH MAP (LIVE) — STAND BY';
-         liveClass='wide alt';
-     } else if (hostNow >= gameEnd) {
-         liveText='🏁 GAME OVER — VIEW MAP';
-         liveClass='wide danger';
-     }
+     if(hostNow < h.outlast.startEpoch) {liveText='👁️ WATCH MAP (LIVE) — STAND BY';liveClass='wide alt';}
+     else if (hostNow >= gameEnd) {liveText='🏁 GAME OVER — VIEW MAP';liveClass='wide danger';}
   }
   const wm=$('hostWatchMap');
   if(wm){wm.style.display=isOL?'':'none'; wm.textContent=liveText; wm.className=liveClass;}
-  
   const ws=$('winnerSection');
-  if(ws){
-   if(isOL&&time()>=h.outlast.startEpoch)ws.classList.remove('hidden');
-   else ws.classList.add('hidden');
-  }
+  if(ws){if(isOL&&time()>=h.outlast.startEpoch)ws.classList.remove('hidden');else ws.classList.add('hidden');}
  }
  if(v==='preview'&&pending){
   const pt=$('previewTeam');
@@ -644,6 +711,7 @@ function renderSetup(){
    updateJoinsStatus();
    const list=$('joinsList');if(!list)return;
    const summary=$('myGamesSummary');
+   const activeBtn=$('myGamesActiveBtn');if(activeBtn)activeBtn.classList.toggle('hidden',!s);
    list.replaceChildren();
    if(!joins.length){list.textContent='No games loaded. Scan a host QR.';if(summary)summary.textContent='';return}
    if(summary)summary.textContent=`${joins.length} game${joins.length===1?'':'s'} saved on this phone`;
@@ -652,7 +720,7 @@ function renderSetup(){
    sorted.forEach(j=>{
      const div=document.createElement('div');div.className='gameCard';
      const header=document.createElement('div');header.className='gameCardHeader';
-     const title=document.createElement('div');title.className='gameCardTitle';title.textContent=`${new Date(j.startEpoch).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} · ${j.game}`;
+     const title=document.createElement('div');title.className='gameCardTitle';title.textContent=`${j.startEpoch?new Date(j.startEpoch).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—'} · ${j.game}`;
      const pill=document.createElement('span');pill.className='gameCardStatus status-'+j.status;pill.textContent=statusLabel(j.status);
      header.append(title,pill);div.appendChild(header);
      const sub=document.createElement('div');sub.className='gameCardSub';
@@ -663,17 +731,18 @@ function renderSetup(){
      div.appendChild(sub);
      const hint=document.createElement('div');hint.className='gameCardHint';hint.textContent=cardHint(j,now);div.appendChild(hint);
      const btns=document.createElement('div');btns.className='gameCardBtns';
-     if(j.status==='READY'){
-       const play=document.createElement('button');play.textContent='JOIN GAME';
-       play.onclick=()=>launchGame(j.gid);
-       btns.appendChild(play);
+     if(j.status==='READY' && !(s&&s.gid===j.gid)){
+       const play=document.createElement('button');play.textContent='JOIN GAME';play.onclick=()=>launchGame(j.gid);btns.appendChild(play);
+     }
+     if(s&&s.gid===j.gid){
+       const cur=document.createElement('button');cur.textContent='BACK TO GAME';cur.onclick=()=>{view='play';render();};btns.appendChild(cur);
      }
      const det=document.createElement('button');det.className='alt';det.textContent='Details';
      det.onclick=()=>{
        const dlg=$('dialog');dlg.classList.remove('armoury');
        const area=$('dialogText');area.replaceChildren();
        const hh=document.createElement('h2');hh.textContent=j.game;area.appendChild(hh);
-       const pp=document.createElement('p');pp.textContent=`Starts ${new Date(j.startEpoch).toLocaleString()}`;area.appendChild(pp);
+       const pp=document.createElement('p');pp.textContent=j.startEpoch?`Starts ${new Date(j.startEpoch).toLocaleString()}`:'No scheduled start.';area.appendChild(pp);
        if(j.payload&&j.payload.mode==='outlast'&&j.payload.outlast){
          const ol=j.payload.outlast;
          const pp2=document.createElement('p');pp2.className='compact';pp2.textContent=`OUTLAST · ${ol.startRadius}m → 5m · −${ol.step}m every ${Math.round((ol.intervalMs||60000)/60000)}min`;area.appendChild(pp2);
@@ -762,24 +831,19 @@ function renderPlay(){
    let p=document.createElement('p');p.className='teamBadge';p.style.background='#3d6b57';p.textContent=`${s.name} · OUTLAST`;st.append(p);
    const hostNow=playerHostNow();
    const live=!!(s.outlast&&hostNow>=s.outlast.startEpoch);
-   
-   // Countdown logic
    const iv=s.outlast.intervalMs||(s.outlast.intervalMin?s.outlast.intervalMin*60000:60000);
    const stepsToEnd=Math.ceil((s.outlast.startRadius-s.outlast.endRadius)/s.outlast.step);
    const countdownStart= s.outlast.startEpoch + (stepsToEnd * iv);
    const gameEnd= countdownStart + 30000;
-   
    let panel=document.createElement('div');panel.className='readyPanel';
    panel.style.background=live?'#1b6b3a':'#0e1c17';
    panel.style.border=live?'2px solid #4ade80':'2px solid #d4af37';
-   
    let status=document.createElement('div');
    status.className='liveStatus';
    status.dataset.live=live?'1':'0';
    status.style.cssText='font-size:18px;font-weight:900;letter-spacing:4px;margin-bottom:14px;color:'+(live?'#4ade80':'#d4af37');
    status.textContent=live?'GAME IS ON':'STAND BY';
    panel.appendChild(status);
-   
    if(live){
       if(hostNow>=gameEnd){
          status.textContent='GAME OVER';status.style.color='#ff5963';
@@ -808,45 +872,32 @@ function renderPlay(){
   }else{
    let p=document.createElement('p');p.className='teamBadge';p.textContent=`${s.name} : ${s.team==='A'?s.rules.a:s.rules.b}`;st.append(p);
    let panel=document.createElement('div');panel.className='readyPanel';
-   
    let container=document.createElement('div');
    container.style.cssText='position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:100%; flex-direction:column; padding:20px 0;';
-   
    let statsTop=document.createElement('div');
    statsTop.style.cssText='font-size:28px; font-weight:900; color:#fff; text-shadow:2px 2px 6px #000; margin-bottom:20px; letter-spacing:1px;';
    statsTop.textContent=`Missions: ${(career.outlastWins||[]).length}`;
-   
    let image=document.createElement('img');image.src='./war-adventures-logo.png';image.alt='War Adventures logo';
    image.style.maxHeight='min(30svh, 200px)';
    image.onerror=()=>{image.remove();let word=document.createElement('strong');word.textContent='WAR ADVENTURES';container.append(word)};
-   
    let statsBottom=document.createElement('div');
    statsBottom.style.cssText='display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:20px;';
-   
    let tagStat=document.createElement('div');
    tagStat.style.cssText='font-size:32px; font-weight:900; color:#fff; text-shadow:2px 2px 6px #000; display:flex; align-items:center; gap:10px;';
-   
    let tagImg=document.createElement('img');
    tagImg.src='./dogtag.svg';
    tagImg.style.width='32px';
    tagImg.style.height='32px';
-   
    let tagNum=document.createElement('span');
    tagNum.textContent=career.lifetimeTags||0;
-   
    tagStat.append(tagImg, tagNum);
-   
    let medicStat=document.createElement('div');
    medicStat.style.cssText='font-size:32px; font-weight:900; color:#fff; text-shadow:2px 2px 6px #000; display:flex; align-items:center; gap:10px;';
-   
    let medicEmoji=document.createElement('span');
    medicEmoji.textContent='💉';
-   
    let medicNum=document.createElement('span');
    medicNum.textContent=career.lifetimeMedics||0;
-   
    medicStat.append(medicEmoji, medicNum);
-   
    statsBottom.append(tagStat, medicStat);
    container.append(statsTop, image, statsBottom);
    panel.append(container);
@@ -1043,15 +1094,13 @@ async function endGame(){
  if(!confirm(`End ${s.game}? This removes this game's local log. Your career and saved schedule remain. Export first if you want a copy.`))return;
  await stopScan();
  try{stopBoundaryWatch()}catch(e){}
- /* Persist COMPLETED on matching join; abort if persistence fails. */
+ let candidate=joins;
  if(s.gid){
   const idx=joins.findIndex(j=>j.gid===s.gid);
   if(idx>=0){
-   joins[idx].status='COMPLETED';
-   if(!saveJoins()){
-    /* saveJoins() already noted the error; abort without clearing session. */
-    return;
-   }
+   candidate=joins.map(j=>j.gid===s.gid?{...j,status:'COMPLETED'}:j);
+   if(!saveJoins(candidate)){note('Could not mark game complete. Try again.');return;}
+   joins=candidate;
   }
  }
  localStorage.removeItem(KEY);
@@ -1079,8 +1128,11 @@ bindClick('scan',()=>scan('play'));
 bindClick('stop',stopScan);
 bindClick('cancelMedic',cancelMedic);
 bindClick('export',()=>{if(s)download()});
-bindClick('endGame',endGame);
+bindClick('endSessionActive',endGame);
+bindClick('endGameDetails',endGame);
 bindClick('reset',()=>{if(!s||!confirm("Erase this phone's player game and personal history?"))return;localStorage.removeItem(KEY);s=null;document.body.classList.remove('returning','mist');stopBoundaryWatch();view=(HOST_MODE&&h)?'hostPanel':'choice';render();note('Player reset.')});
+bindClick('myGamesActiveBtn',()=>{if(s){view='play';render();}});
+bindClick('joinActiveBtn',async()=>{await stopScan();if(s){view='play';render();}});
 bindClick('closeDialog',()=>$('dialog').close());
 bindClick('armouryOpen',()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')});
 bindClick('armouryPlayBtn',()=>{loadCareer();careerPurgeIfExpired();renderArmoury();$('armouryOverlay').classList.remove('hidden')});
@@ -1111,7 +1163,7 @@ if(HOST_MODE){
  bindClick('hostOpen',()=>{view='hostForm';hostMode='standard';hostTarget=null;applyHostMode();const el=$('olStartTime');if(el&&!el.value)el.value=defaultOlStartValue();render()});
  bindClick('hostBatchOpen',()=>{
   view='hostBatchForm';
-  hostBatch=[]; 
+  hostBatch=[]; hostScheduleId=null;
   batchMode='standard';
   let d=new Date(); d.setDate(d.getDate()+((7-d.getDay())%7||7));
   hostBatchDate=d.toISOString().split('T')[0];
@@ -1319,19 +1371,16 @@ function applyBatchMode(){
  if(tools.debug)tools.debug.onclick=()=>{const raw=localStorage.getItem(ANCHOR_KEY);if(raw){try{debugText.value=JSON.stringify(JSON.parse(raw),null,2)}catch(e){debugText.value=raw}}else{debugText.value=JSON.stringify(DEFAULT_ANCHORS,null,2)+'\n\n(DEFAULT)'}debugPanel.classList.add('on')};
  const dclose=$('mapDebugClose');if(dclose)dclose.onclick=()=>debugPanel.classList.remove('on');
  const dcopy=$('mapDebugCopy');if(dcopy)dcopy.onclick=()=>{debugText.select();debugText.setSelectionRange(0,99999);try{document.execCommand('copy')}catch(e){}try{navigator.clipboard&&navigator.clipboard.writeText(debugText.value)}catch(e){}showBanner('Copied',1500)};
- 
  function updateMapCountdown(){
    if(!countdown)return;
    const olData = (s && s.mode === 'outlast' && s.outlast) ? s.outlast : (h && h.mode === 'outlast' && h.outlast ? h.outlast : null);
    if(!olData){ countdown.style.display='none'; return; }
    const hostNow = time();
    if(hostNow < olData.startEpoch){ countdown.style.display='none'; return; }
-   
    const iv=olData.intervalMs||(olData.intervalMin?olData.intervalMin*60000:60000);
    const stepsToEnd=Math.ceil((olData.startRadius-olData.endRadius)/olData.step);
    const countdownStart= olData.startEpoch + (stepsToEnd * iv);
    const gameEnd= countdownStart + 30000;
-   
    if(hostNow>=gameEnd){
       countdown.textContent='GAME OVER';countdown.style.display='block';
    } else if(hostNow>=countdownStart){
@@ -1348,7 +1397,6 @@ function applyBatchMode(){
       }
    }
  }
-
  loadAnchors();
  window._openMapForTarget=()=>{
   reset();overlay.classList.remove('hidden');loadAnchors();updateStatusDefault();applyGrid();renderMarkers();renderBoundary();
@@ -1387,21 +1435,17 @@ setInterval(()=>{
  if(s&&s.mode==='outlast'&&s.outlast){
   const hostNow=time();
   const live=hostNow>=s.outlast.startEpoch;
-  
   if(live!==lastOutlastLive){
    if(live)buzz('start');
    lastOutlastLive=live;
    if(s.phase==='ACTIVE'&&!s.offer&&!s.outbound)renderPlay();
   }
-  
   if(live){
    const iv=s.outlast.intervalMs||(s.outlast.intervalMin?s.outlast.intervalMin*60000:60000);
    const stepsToEnd=Math.ceil((s.outlast.startRadius-s.outlast.endRadius)/s.outlast.step);
    const countdownStart= s.outlast.startEpoch + (stepsToEnd * iv);
    const gameEnd= countdownStart + 30000;
-   
    if(hostNow>=gameEnd){
-      // Game Over
       if(s.phase==='ACTIVE') {
          const hitBtn=$('hit');if(hitBtn)hitBtn.disabled=true;
          const scanBtn=$('scan');if(scanBtn)scanBtn.disabled=true;
@@ -1481,7 +1525,6 @@ setInterval(()=>{
   const gameEnd= countdownStart + 30000;
   const isLive = hostNow >= h.outlast.startEpoch && hostNow < gameEnd;
   const isEnded = hostNow >= gameEnd;
-  
   const wm=$('hostWatchMap');
   if(wm){
      if(isEnded){
@@ -1492,7 +1535,6 @@ setInterval(()=>{
          if(wm.textContent!=='👁️ WATCH MAP (LIVE) — STAND BY'){ wm.textContent='👁️ WATCH MAP (LIVE) — STAND BY'; wm.className='wide alt'; }
      }
   }
-  
   if(isLive!==lastHostOutlastLive){
    if(isLive){
     buzz('start');
